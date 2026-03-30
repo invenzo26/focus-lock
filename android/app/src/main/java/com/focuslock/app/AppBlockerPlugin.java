@@ -33,31 +33,18 @@ public class AppBlockerPlugin extends Plugin {
     @PluginMethod
     public void startBlocking(PluginCall call) {
         JSArray packages = call.getArray("packages");
-        if (packages == null) {
-            call.reject("Missing packages list");
-            return;
-        }
+        if (packages == null) { call.reject("Missing packages list"); return; }
 
-        String packagesJson = packages.toString();
-        Log.d(TAG, "startBlocking requested with packages=" + packagesJson);
+        Log.d(TAG, "Starting blocking with packages: " + packages.toString());
 
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        boolean committed = prefs.edit()
-                .putString(KEY_PACKAGES, packagesJson)
+        prefs.edit()
+                .putString(KEY_PACKAGES, packages.toString())
                 .putBoolean(KEY_BLOCKING, true)
-                .commit();
-
-        Log.d(TAG, "startBlocking commit=" + committed
-                + " blocking=" + prefs.getBoolean(KEY_BLOCKING, false)
-                + " packages=" + prefs.getString(KEY_PACKAGES, "[]"));
-
-        if (!committed) {
-            call.reject("Failed to persist blocking state");
-            return;
-        }
+                .apply();
 
         Intent serviceIntent = new Intent(getContext(), AppBlockerService.class);
-        serviceIntent.setAction(AppBlockerService.ACTION_START_BLOCKING);
+        serviceIntent.setAction("START_BLOCKING");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getContext().startForegroundService(serviceIntent);
         } else {
@@ -69,25 +56,16 @@ public class AppBlockerPlugin extends Plugin {
 
     @PluginMethod
     public void stopBlocking(PluginCall call) {
-        Log.d(TAG, "stopBlocking requested");
+        Log.d(TAG, "Stopping blocking");
 
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        boolean committed = prefs.edit()
+        prefs.edit()
                 .putString(KEY_PACKAGES, "[]")
                 .putBoolean(KEY_BLOCKING, false)
-                .commit();
-
-        Log.d(TAG, "stopBlocking commit=" + committed
-                + " blocking=" + prefs.getBoolean(KEY_BLOCKING, false)
-                + " packages=" + prefs.getString(KEY_PACKAGES, "[]"));
-
-        if (!committed) {
-            call.reject("Failed to clear blocking state");
-            return;
-        }
+                .apply();
 
         Intent serviceIntent = new Intent(getContext(), AppBlockerService.class);
-        serviceIntent.setAction(AppBlockerService.ACTION_STOP_BLOCKING);
+        serviceIntent.setAction("STOP_BLOCKING");
         getContext().startService(serviceIntent);
 
         call.resolve();

@@ -8,7 +8,6 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:allowBackup="true"
@@ -37,10 +36,8 @@
             android:name=".LockScreenActivity"
             android:exported="false"
             android:excludeFromRecents="true"
-            android:launchMode="singleTask"
+            android:launchMode="singleInstance"
             android:taskAffinity=""
-            android:showWhenLocked="true"
-            android:turnScreenOn="true"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
 
         <!-- ACCESSIBILITY SERVICE -->
@@ -60,11 +57,7 @@
         <service
             android:name=".AppBlockerService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="focuslock_active_blocking" />
-        </service>
+            android:foregroundServiceType="specialUse" />
 
         <!-- FILE PROVIDER -->
         <provider

@@ -1,0 +1,51 @@
+<!--
+  Add these entries to your android/app/src/main/AndroidManifest.xml
+  inside the <application> tag, after running `npx cap add android`.
+-->
+
+<!-- Accessibility Service for detecting foreground apps -->
+<service
+    android:name=".AppBlockerAccessibilityService"
+    android:exported="false"
+    android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+    <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+    </intent-filter>
+    <meta-data
+        android:name="android.accessibilityservice"
+        android:resource="@xml/accessibility_service_config" />
+</service>
+
+<!-- Foreground Service for persistent blocking -->
+<service
+    android:name=".AppBlockerService"
+    android:exported="false"
+    android:foregroundServiceType="specialUse" />
+
+<!-- Lock Screen Activity -->
+<activity
+    android:name=".LockScreenActivity"
+    android:exported="false"
+    android:theme="@style/Theme.AppCompat.NoActionBar"
+    android:excludeFromRecents="true"
+    android:taskAffinity=""
+    android:launchMode="singleInstance" />
+
+
+<!--
+  Also add these permissions at the top of AndroidManifest.xml (before <application>):
+
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+  <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+-->
+
+<!--
+  Also add string resource in android/app/src/main/res/values/strings.xml:
+  
+  <string name="accessibility_service_description">
+    FocusLock uses this service to detect when you open blocked apps
+    during a focus session and redirect you back to stay productive.
+  </string>
+-->

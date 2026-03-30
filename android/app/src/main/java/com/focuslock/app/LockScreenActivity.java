@@ -2,13 +2,10 @@ package com.focuslock.app;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -20,17 +17,9 @@ import android.widget.TextView;
 
 public class LockScreenActivity extends Activity {
 
-    private static final String PREFS_NAME = "FocusLockPrefs";
-    private static final String KEY_BLOCKING = "blocking";
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private String blockedPackage;
-    private final Runnable relaunchRunnable = this::relaunchIfStillBlocking;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        blockedPackage = getIntent().getStringExtra("blocked_app");
 
         // Fullscreen immersive flags
         getWindow().addFlags(
@@ -53,6 +42,8 @@ public class LockScreenActivity extends Activity {
         getWindow().setNavigationBarColor(Color.parseColor("#0a0a0f"));
 
         setFinishOnTouchOutside(false);
+
+        String blockedApp = getIntent().getStringExtra("blocked_app");
 
         // Root layout
         LinearLayout root = new LinearLayout(this);
@@ -89,13 +80,13 @@ public class LockScreenActivity extends Activity {
         root.addView(subtitle);
 
         // Blocked app name
-        if (blockedPackage != null) {
+        if (blockedApp != null) {
             TextView appLabel = new TextView(this);
-            String displayName = blockedPackage;
+            String displayName = blockedApp;
             try {
                 displayName = getPackageManager()
                         .getApplicationLabel(
-                                getPackageManager().getApplicationInfo(blockedPackage, 0)
+                                getPackageManager().getApplicationInfo(blockedApp, 0)
                         ).toString();
             } catch (Exception ignored) {}
 
@@ -140,42 +131,6 @@ public class LockScreenActivity extends Activity {
         root.addView(continueBtn, btnParams);
 
         setContentView(root);
-        enforceImmersiveMode();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (!isBlockingActive()) {
-            finish();
-            return;
-        }
-        handler.removeCallbacks(relaunchRunnable);
-        enforceImmersiveMode();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        scheduleRelaunch();
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        scheduleRelaunch();
-    }
-
-    @Override
-    protected void onDestroy() {
-        handler.removeCallbacks(relaunchRunnable);
-        super.onDestroy();
-    }
-
-    @Override
-    public void onUserLeaveHint() {
-        super.onUserLeaveHint();
-        scheduleRelaunch();
     }
 
     @Override
@@ -191,45 +146,6 @@ public class LockScreenActivity extends Activity {
             return true;
         }
         return super.onKeyDown(keyCode, event);
-    }
-
-    private boolean isBlockingActive() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        return prefs.getBoolean(KEY_BLOCKING, false);
-    }
-
-    private void scheduleRelaunch() {
-        handler.removeCallbacks(relaunchRunnable);
-        if (isBlockingActive()) {
-            handler.postDelayed(relaunchRunnable, 150);
-        }
-    }
-
-    private void relaunchIfStillBlocking() {
-        if (!isBlockingActive()) {
-            finish();
-            return;
-        }
-
-        Intent intent = new Intent(this, LockScreenActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                | Intent.FLAG_ACTIVITY_NO_ANIMATION);
-        intent.putExtra("blocked_app", blockedPackage);
-        startActivity(intent);
-    }
-
-    private void enforceImmersiveMode() {
-        getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        );
     }
 
     private int dp(int value) {
