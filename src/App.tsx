@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FocusProvider } from "@/contexts/FocusContext";
+import { NativePermissionGate } from "@/components/NativePermissionGate";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import FocusPage from "./pages/FocusPage";
@@ -12,6 +13,7 @@ import BlockPageRoute from "./pages/BlockPageRoute";
 import HistoryPageRoute from "./pages/HistoryPageRoute";
 import WalletPageRoute from "./pages/WalletPageRoute";
 import ProfilePage from "./pages/ProfilePage";
+import PermissionsPage from "./pages/PermissionsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,16 +26,19 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <FocusProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/focus" element={<FocusPage />} />
-              <Route path="/block" element={<BlockPageRoute />} />
-              <Route path="/history" element={<HistoryPageRoute />} />
-              <Route path="/wallet" element={<WalletPageRoute />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <NativePermissionGate>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/focus" element={<FocusPage />} />
+                <Route path="/block" element={<BlockPageRoute />} />
+                <Route path="/history" element={<HistoryPageRoute />} />
+                <Route path="/wallet" element={<WalletPageRoute />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/permissions" element={<PermissionsPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </NativePermissionGate>
           </FocusProvider>
         </AuthProvider>
       </BrowserRouter>
