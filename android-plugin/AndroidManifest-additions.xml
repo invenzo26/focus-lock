@@ -31,6 +31,7 @@
     android:taskAffinity=""
     android:launchMode="singleInstance" />
 
+
 <!--
   Also add these permissions at the top of AndroidManifest.xml (before <application>):
 

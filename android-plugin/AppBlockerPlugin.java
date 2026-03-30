@@ -15,9 +15,6 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-
 import java.util.List;
 
 @CapacitorPlugin(name = "AppBlocker")
@@ -27,6 +24,7 @@ public class AppBlockerPlugin extends Plugin {
     private static final String KEY_BLOCKED_PACKAGES = "blocked_packages";
     private static final String KEY_BLOCKING_ACTIVE = "blocking_active";
 
+    // 🔥 START BLOCKING
     @PluginMethod
     public void startBlocking(PluginCall call) {
         JSArray packages = call.getArray("packages");
@@ -37,11 +35,10 @@ public class AppBlockerPlugin extends Plugin {
 
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit()
-            .putString(KEY_BLOCKED_PACKAGES, packages.toString())
-            .putBoolean(KEY_BLOCKING_ACTIVE, true)
-            .apply();
+                .putString(KEY_BLOCKED_PACKAGES, packages.toString())
+                .putBoolean(KEY_BLOCKING_ACTIVE, true)
+                .apply();
 
-        // Start the foreground service to keep blocking alive
         Intent serviceIntent = new Intent(getContext(), AppBlockerService.class);
         serviceIntent.setAction("START_BLOCKING");
         getContext().startForegroundService(serviceIntent);
@@ -49,15 +46,15 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve();
     }
 
+    // 🔥 STOP BLOCKING
     @PluginMethod
     public void stopBlocking(PluginCall call) {
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit()
-            .remove(KEY_BLOCKED_PACKAGES)
-            .putBoolean(KEY_BLOCKING_ACTIVE, false)
-            .apply();
+                .remove(KEY_BLOCKED_PACKAGES)
+                .putBoolean(KEY_BLOCKING_ACTIVE, false)
+                .apply();
 
-        // Stop the foreground service
         Intent serviceIntent = new Intent(getContext(), AppBlockerService.class);
         serviceIntent.setAction("STOP_BLOCKING");
         getContext().startService(serviceIntent);
@@ -65,6 +62,7 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve();
     }
 
+    // 🔥 CHECK ACCESSIBILITY
     @PluginMethod
     public void isAccessibilityEnabled(PluginCall call) {
         boolean enabled = isAccessibilityServiceEnabled();
@@ -73,6 +71,7 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve(result);
     }
 
+    // 🔥 OPEN ACCESSIBILITY SETTINGS
     @PluginMethod
     public void openAccessibilitySettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
@@ -81,6 +80,33 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve();
     }
 
+    // 🔥 USAGE ACCESS CHECK
+    @PluginMethod
+    public void isUsageAccessEnabled(PluginCall call) {
+        android.app.AppOpsManager appOps = (android.app.AppOpsManager)
+                getContext().getSystemService(Context.APP_OPS_SERVICE);
+
+        int mode = appOps.checkOpNoThrow(
+                android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                getContext().getPackageName()
+        );
+
+        JSObject result = new JSObject();
+        result.put("enabled", mode == android.app.AppOpsManager.MODE_ALLOWED);
+        call.resolve(result);
+    }
+
+    // 🔥 OPEN USAGE SETTINGS
+    @PluginMethod
+    public void openUsageAccessSettings(PluginCall call) {
+        Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
+        call.resolve();
+    }
+
+    // 🔥 GET INSTALLED APPS
     @PluginMethod
     public void getInstalledApps(PluginCall call) {
         PackageManager pm = getContext().getPackageManager();
@@ -88,9 +114,7 @@ public class AppBlockerPlugin extends Plugin {
         JSArray appsArray = new JSArray();
 
         for (ApplicationInfo appInfo : apps) {
-            // Only include launchable apps (skip system services)
             if (pm.getLaunchIntentForPackage(appInfo.packageName) != null) {
-                // Skip our own app
                 if (appInfo.packageName.equals(getContext().getPackageName())) continue;
 
                 JSObject appObj = new JSObject();
@@ -105,19 +129,21 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve(result);
     }
 
+    // 🔥 CHECK ACCESSIBILITY ENABLED
     private boolean isAccessibilityServiceEnabled() {
-        String serviceName = getContext().getPackageName() + "/" + 
-            AppBlockerAccessibilityService.class.getCanonicalName();
-        
+        String serviceName = getContext().getPackageName() + "/" +
+                AppBlockerAccessibilityService.class.getCanonicalName();
+
         String enabledServices = Settings.Secure.getString(
-            getContext().getContentResolver(),
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                getContext().getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         );
 
         if (enabledServices == null) return false;
-        
+
         TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(':');
         splitter.setString(enabledServices);
+
         while (splitter.hasNext()) {
             if (splitter.next().equalsIgnoreCase(serviceName)) return true;
         }
