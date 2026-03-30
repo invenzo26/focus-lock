@@ -1,11 +1,16 @@
 package com.focuslock.app;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -17,11 +22,14 @@ import android.widget.TextView;
 
 public class LockScreenActivity extends Activity {
 
+    private static final String TAG = "FocusLockScreen";
+    private static final String PREFS_NAME = "FocusLockPrefs";
+    private Handler handler = new Handler(Looper.getMainLooper());
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Fullscreen immersive flags
         getWindow().addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                         | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
@@ -40,12 +48,10 @@ public class LockScreenActivity extends Activity {
 
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.parseColor("#0a0a0f"));
-
         setFinishOnTouchOutside(false);
 
         String blockedApp = getIntent().getStringExtra("blocked_app");
 
-        // Root layout
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
@@ -99,7 +105,7 @@ public class LockScreenActivity extends Activity {
             root.addView(appLabel);
         }
 
-        // Continue Focus button
+        // Continue Focus button — returns user to FocusLock app
         Button continueBtn = new Button(this);
         continueBtn.setText("Continue Focus");
         continueBtn.setTextColor(Color.WHITE);
@@ -114,7 +120,6 @@ public class LockScreenActivity extends Activity {
         continueBtn.setPadding(dp(32), dp(18), dp(32), dp(18));
 
         continueBtn.setOnClickListener(v -> {
-            moveTaskToBack(true);
             Intent intent = getPackageManager().getLaunchIntentForPackage(getPackageName());
             if (intent != null) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -131,6 +136,41 @@ public class LockScreenActivity extends Activity {
         root.addView(continueBtn, btnParams);
 
         setContentView(root);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // If blocking is still active, relaunch lock screen to prevent bypass
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (prefs.getBoolean("blocking", false)) {
+            Log.d(TAG, "onPause — relaunching lock screen");
+            handler.postDelayed(() -> {
+                SharedPreferences p = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                if (p.getBoolean("blocking", false)) {
+                    Intent intent = new Intent(this, LockScreenActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                            | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                    startActivity(intent);
+                }
+            }, 200);
+        }
+    }
+
+    @Override
+    public void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // User pressed Home — relaunch if blocking
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (prefs.getBoolean("blocking", false)) {
+            Log.d(TAG, "onUserLeaveHint — relaunching lock screen");
+            handler.postDelayed(() -> {
+                Intent intent = new Intent(this, LockScreenActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(intent);
+            }, 300);
+        }
     }
 
     @Override

@@ -32,7 +32,7 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
-        Log.d(TAG, "Service Connected");
+        Log.d(TAG, "✅ Accessibility Service Connected");
 
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
@@ -56,23 +56,10 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
         // Never block ourselves
         if (packageName.equals(getPackageName())) return;
 
-        // Ignore system UI packages
-        if (packageName.equals("com.android.systemui")
-                || packageName.equals("com.android.launcher")
-                || packageName.equals("com.android.launcher3")
-                || packageName.equals("com.google.android.apps.nexuslauncher")
-                || packageName.equals("com.miui.home")
-                || packageName.equals("com.huawei.android.launcher")
-                || packageName.equals("com.sec.android.app.launcher")
-                || packageName.equals("com.oppo.launcher")
-                || packageName.equals("com.realme.launcher")
-                || packageName.equals("com.vivo.launcher")
-                || packageName.startsWith("com.android.settings")) {
-            return;
-        }
+        // Ignore system UI / launchers / settings
+        if (isSystemPackage(packageName)) return;
 
-        Log.d(TAG, "Opened: " + packageName);
-
+        // Read blocking state from SharedPreferences
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         boolean isBlocking = prefs.getBoolean(KEY_BLOCKING, false);
 
@@ -89,26 +76,29 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
                 if (packageName.equals(blockedPkg)) {
                     long now = System.currentTimeMillis();
 
-                    // Debounce: prevent spamming lock screen
-                    if (packageName.equals(lastBlockedPackage) && (now - lastBlockedTime) < 1200) {
+                    // Debounce: prevent rapid-fire lock screens
+                    if (packageName.equals(lastBlockedPackage) && (now - lastBlockedTime) < 800) {
                         return;
                     }
 
                     lastBlockedPackage = packageName;
                     lastBlockedTime = now;
 
-                    Log.d(TAG, "BLOCKED: " + packageName);
+                    Log.d(TAG, "🚫 BLOCKED: " + packageName);
 
-                    // Launch lock screen immediately
-                    launchLockScreen(packageName);
+                    // Step 1: Force go home first to close the blocked app
+                    performGlobalAction(GLOBAL_ACTION_HOME);
 
-                    // Double-enforce after a short delay (anti-bypass for MIUI/Samsung)
+                    // Step 2: Launch lock screen after a tiny delay
+                    handler.postDelayed(() -> launchLockScreen(packageName), 150);
+
+                    // Step 3: Re-enforce after another delay (anti-bypass for MIUI/Samsung)
                     handler.postDelayed(() -> {
                         SharedPreferences p = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                         if (p.getBoolean(KEY_BLOCKING, false)) {
                             launchLockScreen(packageName);
                         }
-                    }, 400);
+                    }, 600);
 
                     return;
                 }
@@ -119,13 +109,33 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
     }
 
     private void launchLockScreen(String blockedPackage) {
+        Log.d(TAG, "Launching lock screen for: " + blockedPackage);
         Intent intent = new Intent(this, LockScreenActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                | Intent.FLAG_ACTIVITY_NO_ANIMATION
+                | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
         intent.putExtra("blocked_app", blockedPackage);
         startActivity(intent);
+    }
+
+    private boolean isSystemPackage(String packageName) {
+        return packageName.equals("com.android.systemui")
+                || packageName.equals("com.android.launcher")
+                || packageName.equals("com.android.launcher3")
+                || packageName.equals("com.google.android.apps.nexuslauncher")
+                || packageName.equals("com.miui.home")
+                || packageName.equals("com.huawei.android.launcher")
+                || packageName.equals("com.sec.android.app.launcher")
+                || packageName.equals("com.oppo.launcher")
+                || packageName.equals("com.realme.launcher")
+                || packageName.equals("com.vivo.launcher")
+                || packageName.equals("com.coloros.launcher")
+                || packageName.equals("com.oneplus.launcher")
+                || packageName.equals("com.nothing.launcher")
+                || packageName.startsWith("com.android.settings")
+                || packageName.equals("com.android.permissioncontroller");
     }
 
     @Override
