@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Shield, ShieldCheck, Eye, Layers, BatteryCharging, Rocket,
+  Shield, ShieldCheck, Eye, Layers, BatteryCharging,
   ChevronRight, ChevronLeft, Loader2, Sparkles,
 } from 'lucide-react';
 import { useNativeBlocker } from '@/hooks/useNativeBlocker';
@@ -12,25 +12,25 @@ const PERMISSION_STEPS = [
     key: 'accessibility' as const,
     icon: Shield,
     title: 'Accessibility Service',
-    description: 'Required to detect which app is running in the foreground and block it in real-time. FocusLock will monitor app switches to enforce your focus session.',
+    description: 'Required to detect which app is running in the foreground and block it in real-time.',
   },
   {
     key: 'usageAccess' as const,
     icon: Eye,
     title: 'Usage Access',
-    description: 'Allows FocusLock to see which apps you use, so it can accurately track focus sessions and detect if you switch to a blocked app.',
+    description: 'Allows FocusLock to see which apps you use so it can enforce blocking.',
   },
   {
     key: 'overlay' as const,
     icon: Layers,
     title: 'Display Over Other Apps',
-    description: 'Enables the blocking overlay to appear on top of restricted apps. Without this, the lock screen cannot interrupt blocked apps.',
+    description: 'Enables the blocking overlay to appear on top of restricted apps.',
   },
   {
     key: 'batteryOptimization' as const,
     icon: BatteryCharging,
     title: 'Disable Battery Optimization',
-    description: 'Prevents Android from killing FocusLock in the background. This ensures your focus sessions and app blocking continue working reliably.',
+    description: 'Prevents Android from killing FocusLock in the background.',
   },
 ];
 
@@ -43,8 +43,8 @@ export default function PermissionsPage() {
     openOverlaySettings, openBatteryOptimizationSettings, openAutoStartSettings,
   } = useNativeBlocker();
   const [currentStep, setCurrentStep] = useState(0);
-  const [showAutoStart, setShowAutoStart] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const hasNavigated = useRef(false);
 
   // Poll permissions every 2s
   useEffect(() => {
@@ -66,19 +66,20 @@ export default function PermissionsPage() {
     }
   }, [permissions, currentStep]);
 
-  // Show success when all granted
+  // Navigate when all granted — use ref to prevent double-fire
   useEffect(() => {
-    if (allPermissionsGranted && !showSuccess) {
+    if (allPermissionsGranted && !hasNavigated.current) {
       setShowSuccess(true);
+      hasNavigated.current = true;
       const timer = setTimeout(() => {
         const returnTo = (location.state as any)?.returnTo || '/';
         navigate(returnTo, { replace: true });
-      }, 2500);
+      }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [allPermissionsGranted, navigate, location.state, showSuccess]);
+  }, [allPermissionsGranted, navigate, location.state]);
 
-  // Web redirect
+  // Web: skip straight through
   if (!isNative) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -121,9 +122,7 @@ export default function PermissionsPage() {
             <Sparkles className="w-12 h-12 text-green-400" />
           </motion.div>
           <h1 className="text-2xl font-bold text-foreground">You're All Set! 🎉</h1>
-          <p className="text-sm text-muted-foreground">All permissions granted. FocusLock is ready to protect your focus.</p>
-          <Loader2 className="w-5 h-5 text-primary animate-spin mx-auto" />
-          <p className="text-xs text-muted-foreground">Redirecting...</p>
+          <p className="text-sm text-muted-foreground">All permissions granted. Redirecting...</p>
         </motion.div>
       </div>
     );
@@ -131,7 +130,6 @@ export default function PermissionsPage() {
 
   return (
     <div className="min-h-screen bg-background p-6 flex flex-col">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground mb-1">Setup Permissions</h1>
         <p className="text-sm text-muted-foreground">FocusLock needs a few permissions to work properly</p>
@@ -140,19 +138,16 @@ export default function PermissionsPage() {
       {/* Progress */}
       <div className="flex items-center gap-2 mb-8">
         {PERMISSION_STEPS.map((s, i) => (
-          <div key={s.key} className="flex-1 flex flex-col items-center gap-1">
-            <div className={`w-full h-1.5 rounded-full transition-all duration-500 ${
-              permissions[s.key] ? 'gradient-primary' :
-              i === currentStep ? 'bg-primary/40' : 'bg-muted'
-            }`} />
-          </div>
+          <div key={s.key} className={`flex-1 h-1.5 rounded-full transition-all duration-500 ${
+            permissions[s.key] ? 'gradient-primary' : i === currentStep ? 'bg-primary/40' : 'bg-muted'
+          }`} />
         ))}
       </div>
       <p className="text-xs text-muted-foreground text-center mb-6">
         Step {currentStep + 1} of {PERMISSION_STEPS.length} • {grantedCount} granted
       </p>
 
-      {/* Current permission card */}
+      {/* Current step */}
       <div className="flex-1 flex flex-col items-center justify-center">
         <AnimatePresence mode="wait">
           <motion.div
@@ -163,7 +158,6 @@ export default function PermissionsPage() {
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             className="w-full max-w-sm"
           >
-            {/* Icon */}
             <motion.div
               animate={isCurrentGranted ? { scale: [1, 1.1, 1] } : { scale: [1, 1.05, 1] }}
               transition={{ repeat: isCurrentGranted ? 0 : Infinity, duration: 2.5 }}
@@ -174,7 +168,6 @@ export default function PermissionsPage() {
               <StepIcon className={`w-12 h-12 ${isCurrentGranted ? 'text-green-400' : 'text-primary'}`} />
             </motion.div>
 
-            {/* Info */}
             <div className="text-center mb-6">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <h2 className="text-xl font-bold text-foreground">{step.title}</h2>
@@ -188,7 +181,6 @@ export default function PermissionsPage() {
               <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
             </div>
 
-            {/* Grant button */}
             {!isCurrentGranted ? (
               <motion.button
                 whileTap={{ scale: 0.95 }}
@@ -214,7 +206,7 @@ export default function PermissionsPage() {
         </AnimatePresence>
       </div>
 
-      {/* Navigation dots */}
+      {/* Nav dots */}
       <div className="flex items-center justify-center gap-3 mt-6">
         <button onClick={() => setCurrentStep(s => Math.max(0, s - 1))} disabled={currentStep === 0}
           className="text-muted-foreground disabled:opacity-30">
@@ -235,9 +227,8 @@ export default function PermissionsPage() {
         </button>
       </div>
 
-      {/* Optional: Auto-start (MIUI) */}
       <div className="mt-6 text-center">
-        <button onClick={() => { setShowAutoStart(true); openAutoStartSettings(); }}
+        <button onClick={openAutoStartSettings}
           className="text-xs text-muted-foreground underline underline-offset-2">
           MIUI/Xiaomi? Enable Auto-Start →
         </button>
