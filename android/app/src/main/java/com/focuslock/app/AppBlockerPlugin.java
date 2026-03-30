@@ -1,5 +1,8 @@
 package com.focuslock.app;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
+import android.view.accessibility.AccessibilityManager;
+import android.content.ComponentName;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
@@ -20,6 +23,9 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 @CapacitorPlugin(name = "AppBlocker")
@@ -34,6 +40,8 @@ public class AppBlockerPlugin extends Plugin {
     public void startBlocking(PluginCall call) {
         JSArray packages = call.getArray("packages");
         if (packages == null) { call.reject("Missing packages list"); return; }
+        if (packages.length() == 0) { call.reject("Select at least one app to block"); return; }
+        if (!checkAccessibilityEnabled()) { call.reject("Accessibility Service is not enabled"); return; }
 
         Log.d(TAG, "Starting blocking with packages: " + packages.toString());
 
@@ -73,6 +81,25 @@ public class AppBlockerPlugin extends Plugin {
         getContext().startService(serviceIntent);
 
         call.resolve();
+    }
+
+    @PluginMethod
+    public void getBlockingStatus(PluginCall call) {
+        SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean active = prefs.getBoolean(KEY_BLOCKING, false);
+        String packagesJson = prefs.getString(KEY_PACKAGES, "[]");
+
+        JSArray packages;
+        try {
+            packages = new JSArray(packagesJson);
+        } catch (Exception e) {
+            packages = new JSArray();
+        }
+
+        JSObject result = new JSObject();
+        result.put("active", active);
+        result.put("packages", packages);
+        call.resolve(result);
     }
 
     @PluginMethod
@@ -183,16 +210,23 @@ public class AppBlockerPlugin extends Plugin {
     public void getInstalledApps(PluginCall call) {
         PackageManager pm = getContext().getPackageManager();
         List<ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+        List<ApplicationInfo> launchableApps = new ArrayList<>();
         JSArray appsArray = new JSArray();
 
         for (ApplicationInfo appInfo : apps) {
             if (pm.getLaunchIntentForPackage(appInfo.packageName) != null) {
                 if (appInfo.packageName.equals(getContext().getPackageName())) continue;
-                JSObject appObj = new JSObject();
-                appObj.put("packageName", appInfo.packageName);
-                appObj.put("appName", pm.getApplicationLabel(appInfo).toString());
-                appsArray.put(appObj);
+                launchableApps.add(appInfo);
             }
+        }
+
+        Collections.sort(launchableApps, Comparator.comparing(app -> pm.getApplicationLabel(app).toString().toLowerCase()));
+
+        for (ApplicationInfo appInfo : launchableApps) {
+            JSObject appObj = new JSObject();
+            appObj.put("packageName", appInfo.packageName);
+            appObj.put("appName", pm.getApplicationLabel(appInfo).toString());
+            appsArray.put(appObj);
         }
 
         JSObject result = new JSObject();
@@ -242,8 +276,22 @@ public class AppBlockerPlugin extends Plugin {
     }
 
     private boolean checkAccessibilityEnabled() {
-        String expectedService = getContext().getPackageName() + "/"
-                + AppBlockerAccessibilityService.class.getCanonicalName();
+        ComponentName expectedComponent = new ComponentName(getContext(), AppBlockerAccessibilityService.class);
+        String expectedService = expectedComponent.flattenToString();
+        String expectedShortService = expectedComponent.flattenToShortString();
+
+        AccessibilityManager accessibilityManager = (AccessibilityManager) getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);
+        if (accessibilityManager != null) {
+            List<AccessibilityServiceInfo> enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
+            for (AccessibilityServiceInfo serviceInfo : enabledServices) {
+                if (serviceInfo.getResolveInfo() == null || serviceInfo.getResolveInfo().serviceInfo == null) continue;
+                String packageName = serviceInfo.getResolveInfo().serviceInfo.packageName;
+                String className = serviceInfo.getResolveInfo().serviceInfo.name;
+                if (expectedComponent.getPackageName().equals(packageName) && expectedComponent.getClassName().equals(className)) {
+                    return true;
+                }
+            }
+        }
 
         String enabledServices = Settings.Secure.getString(
                 getContext().getContentResolver(),
@@ -260,7 +308,7 @@ public class AppBlockerPlugin extends Plugin {
 
         while (splitter.hasNext()) {
             String service = splitter.next();
-            if (service.equalsIgnoreCase(expectedService)) {
+            if (service.equalsIgnoreCase(expectedService) || service.equalsIgnoreCase(expectedShortService)) {
                 return true;
             }
         }

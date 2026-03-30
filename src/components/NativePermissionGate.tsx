@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import AppBlocker from '@/plugins/AppBlockerPlugin';
@@ -11,45 +11,48 @@ import AppBlocker from '@/plugins/AppBlockerPlugin';
 export function NativePermissionGate({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [checked, setChecked] = useState(false);
-  const hasRedirected = useRef(false);
+  const [checked, setChecked] = useState(!Capacitor.isNativePlatform());
 
   useEffect(() => {
+    let cancelled = false;
+
     const check = async () => {
-      // Web: always pass through
       if (!Capacitor.isNativePlatform()) {
-        setChecked(true);
+        if (!cancelled) setChecked(true);
         return;
       }
 
-      // Don't check on these pages (avoids loops)
       if (location.pathname === '/permissions' || location.pathname === '/auth') {
-        setChecked(true);
+        if (!cancelled) setChecked(true);
         return;
       }
 
-      // Only redirect once per app session to avoid infinite loops
-      if (hasRedirected.current) {
-        setChecked(true);
-        return;
-      }
+      if (!cancelled) setChecked(false);
 
       try {
         const [acc, usage] = await Promise.all([
           AppBlocker.isAccessibilityEnabled(),
           AppBlocker.isUsageAccessEnabled(),
         ]);
+
+        if (cancelled) return;
+
         if (!acc.enabled || !usage.enabled) {
-          hasRedirected.current = true;
           navigate('/permissions', { replace: true, state: { returnTo: location.pathname } });
+          return;
         }
       } catch {
-        // Plugin error — allow through
+        if (cancelled) return;
       }
-      setChecked(true);
+
+      if (!cancelled) setChecked(true);
     };
+
     check();
-  }, [location.pathname]);
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, navigate]);
 
   if (!checked) return null;
   return <>{children}</>;

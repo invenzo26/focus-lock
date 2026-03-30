@@ -18,7 +18,8 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
     private static final String PREFS_NAME = "FocusLockPrefs";
     private static final String KEY_PACKAGES = "packages";
     private static final String KEY_BLOCKING = "blocking";
-    private static final long BLOCK_DEBOUNCE_MS = 2000;
+    private static final String KEY_EXIT_GRACE_UNTIL = "exit_grace_until";
+    private static final long BLOCK_DEBOUNCE_MS = 1200;
 
     private String lastBlockedPackage = "";
     private long lastBlockedTime = 0;
@@ -33,14 +34,15 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
-        Log.d(TAG, "✅ Accessibility Service Connected");
+        Log.d(TAG, "Service Connected");
 
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
-        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
+        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED | AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
         info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
                 | AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
-                | AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS;
+                | AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+                | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         info.notificationTimeout = 50;
         setServiceInfo(info);
     }
@@ -48,11 +50,18 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event == null) return;
-        if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
+
+        int eventType = event.getEventType();
+        if (eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                && eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            return;
+        }
 
         CharSequence pkgCharSeq = event.getPackageName();
         if (pkgCharSeq == null) return;
         String packageName = pkgCharSeq.toString();
+
+        Log.d(TAG, "Opened: " + packageName);
 
         // Never block ourselves
         if (packageName.equals(getPackageName())) return;
@@ -65,6 +74,11 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
         boolean isBlocking = prefs.getBoolean(KEY_BLOCKING, false);
 
         if (!isBlocking) return;
+
+        long exitGraceUntil = prefs.getLong(KEY_EXIT_GRACE_UNTIL, 0);
+        if (System.currentTimeMillis() < exitGraceUntil) {
+            return;
+        }
 
         String packagesJson = prefs.getString(KEY_PACKAGES, "[]");
 
@@ -85,14 +99,14 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
                     lastBlockedPackage = packageName;
                     lastBlockedTime = now;
 
-                    Log.d(TAG, "🚫 BLOCKED: " + packageName);
+                    Log.d(TAG, "BLOCKED: " + packageName);
 
                     // Step 1: Force go home first to close the blocked app
                     performGlobalAction(GLOBAL_ACTION_HOME);
 
                     // Step 2: Launch lock screen once after a tiny delay
                     handler.removeCallbacksAndMessages(null);
-                    handler.postDelayed(() -> launchLockScreen(packageName), 150);
+                    handler.postDelayed(() -> launchLockScreen(packageName), 250);
 
                     return;
                 }
@@ -128,6 +142,7 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
                 || packageName.equals("com.coloros.launcher")
                 || packageName.equals("com.oneplus.launcher")
                 || packageName.equals("com.nothing.launcher")
+                || packageName.startsWith("com.miui.securitycenter")
                 || packageName.startsWith("com.android.settings")
                 || packageName.equals("com.android.permissioncontroller");
     }

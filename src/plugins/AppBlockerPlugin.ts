@@ -3,6 +3,7 @@ import { registerPlugin } from '@capacitor/core';
 export interface AppBlockerPlugin {
   startBlocking(options: { packages: string[] }): Promise<void>;
   stopBlocking(): Promise<void>;
+  getBlockingStatus(): Promise<{ active: boolean; packages: string[] }>;
   isAccessibilityEnabled(): Promise<{ enabled: boolean }>;
   isUsageAccessEnabled(): Promise<{ enabled: boolean }>;
   isOverlayEnabled(): Promise<{ enabled: boolean }>;
