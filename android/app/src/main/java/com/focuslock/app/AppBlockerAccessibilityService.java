@@ -25,6 +25,14 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
     private String lastBlockedPackage = "";
     private long lastBlockedTime = 0;
     private Handler handler;
+    private SharedPreferences sharedPreferences;
+    private final SharedPreferences.OnSharedPreferenceChangeListener preferenceChangeListener =
+            (prefs, key) -> {
+                if (KEY_PACKAGES.equals(key) || KEY_BLOCKING.equals(key)) {
+                    Log.d(TAG, "Prefs changed for key=" + key + ", refreshing cache");
+                    refreshPrefs();
+                }
+            };
 
     // Cache to avoid parsing JSON on every event
     private Set<String> blockedSet = new HashSet<>();
@@ -52,6 +60,8 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
     public void onCreate() {
         super.onCreate();
         handler = new Handler(Looper.getMainLooper());
+        sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener);
         Log.d(TAG, "Service Created");
     }
 
@@ -72,24 +82,28 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
     }
 
     private void refreshPrefs() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        isBlocking = prefs.getBoolean(KEY_BLOCKING, false);
-        String packagesJson = prefs.getString(KEY_PACKAGES, "[]");
-        lastPrefsRead = System.currentTimeMillis();
+        if (sharedPreferences == null) {
+            sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        }
 
-        Log.d(TAG, "refreshPrefs - blocking: " + isBlocking + ", packages: " + packagesJson);
+        isBlocking = sharedPreferences.getBoolean(KEY_BLOCKING, false);
+        String packagesJson = sharedPreferences.getString(KEY_PACKAGES, "[]");
+        lastPrefsRead = System.currentTimeMillis();
 
         blockedSet.clear();
         try {
             JSONArray arr = new JSONArray(packagesJson);
             for (int i = 0; i < arr.length(); i++) {
-                blockedSet.add(arr.getString(i));
+                String pkg = arr.optString(i, "").trim();
+                if (!pkg.isEmpty()) {
+                    blockedSet.add(pkg);
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Error parsing packages JSON", e);
         }
 
-        Log.d(TAG, "Blocked set (" + blockedSet.size() + "): " + blockedSet);
+        Log.d(TAG, "refreshPrefs: blocking=" + isBlocking + " set=" + blockedSet);
     }
 
     @Override
@@ -115,9 +129,9 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
             refreshPrefs();
         }
 
-        if (!isBlocking) return;
-
         Log.d(TAG, "Opened: " + packageName);
+
+        if (!isBlocking) return;
 
         if (blockedSet.contains(packageName)) {
             // Debounce
@@ -130,15 +144,23 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
 
             Log.d(TAG, "BLOCKED: " + packageName);
 
-            launchLockScreen(packageName);
+            enforceBlock(packageName);
 
             // Double-enforce after delay
             handler.postDelayed(() -> {
+                refreshPrefs();
                 if (isBlocking && blockedSet.contains(packageName)) {
-                    launchLockScreen(packageName);
+                    Log.d(TAG, "Reinforcing block for: " + packageName);
+                    enforceBlock(packageName);
                 }
             }, 400);
         }
+    }
+
+    private void enforceBlock(String blockedPackage) {
+        boolean homeSuccess = performGlobalAction(GLOBAL_ACTION_HOME);
+        Log.d(TAG, "performGlobalAction(HOME)=" + homeSuccess + " for " + blockedPackage);
+        handler.postDelayed(() -> launchLockScreen(blockedPackage), 60);
     }
 
     private void launchLockScreen(String blockedPackage) {
@@ -146,9 +168,18 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
                 | Intent.FLAG_ACTIVITY_NO_ANIMATION);
         intent.putExtra("blocked_app", blockedPackage);
         startActivity(intent);
+    }
+
+    @Override
+    public void onDestroy() {
+        if (sharedPreferences != null) {
+            sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener);
+        }
+        super.onDestroy();
     }
 
     @Override
