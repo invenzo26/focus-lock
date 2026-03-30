@@ -38,10 +38,13 @@ public class AppBlockerPlugin extends Plugin {
         Log.d(TAG, "Starting blocking with packages: " + packages.toString());
 
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit()
+        // CRITICAL: Use commit() for synchronous write so accessibility service reads immediately
+        boolean saved = prefs.edit()
                 .putString(KEY_PACKAGES, packages.toString())
                 .putBoolean(KEY_BLOCKING, true)
-                .apply();
+                .commit();
+
+        Log.d(TAG, "SharedPreferences saved: " + saved);
 
         Intent serviceIntent = new Intent(getContext(), AppBlockerService.class);
         serviceIntent.setAction("START_BLOCKING");
@@ -59,10 +62,11 @@ public class AppBlockerPlugin extends Plugin {
         Log.d(TAG, "Stopping blocking");
 
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        // Use commit() for immediate effect
         prefs.edit()
                 .putString(KEY_PACKAGES, "[]")
                 .putBoolean(KEY_BLOCKING, false)
-                .apply();
+                .commit();
 
         Intent serviceIntent = new Intent(getContext(), AppBlockerService.class);
         serviceIntent.setAction("STOP_BLOCKING");
@@ -74,6 +78,7 @@ public class AppBlockerPlugin extends Plugin {
     @PluginMethod
     public void isAccessibilityEnabled(PluginCall call) {
         boolean enabled = checkAccessibilityEnabled();
+        Log.d(TAG, "Accessibility enabled: " + enabled);
         JSObject result = new JSObject();
         result.put("enabled", enabled);
         call.resolve(result);
@@ -155,7 +160,6 @@ public class AppBlockerPlugin extends Plugin {
 
     @PluginMethod
     public void openAutoStartSettings(PluginCall call) {
-        // Try common MIUI/Xiaomi auto-start intent
         try {
             Intent intent = new Intent();
             intent.setClassName("com.miui.securitycenter",
@@ -163,7 +167,6 @@ public class AppBlockerPlugin extends Plugin {
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             getContext().startActivity(intent);
         } catch (Exception e) {
-            // Fallback: open general app settings
             try {
                 Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                         Uri.parse("package:" + getContext().getPackageName()));
@@ -197,8 +200,6 @@ public class AppBlockerPlugin extends Plugin {
         call.resolve(result);
     }
 
-    // --- Timer methods for background-safe focus timer ---
-
     @PluginMethod
     public void setFocusTimer(PluginCall call) {
         long startTime = (long) call.getDouble("startTime", 0.0).doubleValue();
@@ -208,9 +209,8 @@ public class AppBlockerPlugin extends Plugin {
         prefs.edit()
                 .putLong("timer_start", startTime)
                 .putInt("timer_duration", durationSeconds)
-                .apply();
+                .commit();
 
-        Log.d(TAG, "Focus timer set: start=" + startTime + " duration=" + durationSeconds);
         call.resolve();
     }
 
@@ -237,7 +237,7 @@ public class AppBlockerPlugin extends Plugin {
         prefs.edit()
                 .remove("timer_start")
                 .remove("timer_duration")
-                .apply();
+                .commit();
         call.resolve();
     }
 
@@ -249,6 +249,9 @@ public class AppBlockerPlugin extends Plugin {
                 getContext().getContentResolver(),
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         );
+
+        Log.d(TAG, "Expected service: " + expectedService);
+        Log.d(TAG, "Enabled services: " + enabledServices);
 
         if (enabledServices == null) return false;
 

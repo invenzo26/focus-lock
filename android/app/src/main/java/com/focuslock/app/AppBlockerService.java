@@ -5,7 +5,9 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
@@ -17,6 +19,7 @@ public class AppBlockerService extends Service {
     private static final String TAG = "FocusLockService";
     private static final String CHANNEL_ID = "focuslock_channel";
     private static final int NOTIFICATION_ID = 9001;
+    private static final String PREFS_NAME = "FocusLockPrefs";
 
     @Override
     public void onCreate() {
@@ -59,6 +62,26 @@ public class AppBlockerService extends Service {
         }
 
         return START_STICKY;
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // Re-start service if user swipes app from recents
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean isBlocking = prefs.getBoolean("blocking", false);
+
+        if (isBlocking) {
+            Log.d(TAG, "Task removed but blocking active — restarting service");
+            Intent restartIntent = new Intent(this, AppBlockerService.class);
+            restartIntent.setAction("START_BLOCKING");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(restartIntent);
+            } else {
+                startService(restartIntent);
+            }
+        }
+
+        super.onTaskRemoved(rootIntent);
     }
 
     @Nullable
