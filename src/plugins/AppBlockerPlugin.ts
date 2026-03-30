@@ -1,16 +1,24 @@
 import { registerPlugin } from '@capacitor/core';
 
 export interface AppBlockerPlugin {
-  /** Start blocking the given package names */
   startBlocking(options: { packages: string[] }): Promise<void>;
-  /** Stop blocking all apps */
   stopBlocking(): Promise<void>;
-  /** Check if accessibility service is enabled */
   isAccessibilityEnabled(): Promise<{ enabled: boolean }>;
-  /** Open accessibility settings so user can enable the service */
+  isUsageAccessEnabled(): Promise<{ enabled: boolean }>;
+  isOverlayEnabled(): Promise<{ enabled: boolean }>;
+  isBatteryOptimizationDisabled(): Promise<{ enabled: boolean }>;
   openAccessibilitySettings(): Promise<void>;
-  /** Get list of installed apps */
+  openUsageAccessSettings(): Promise<void>;
+  openOverlaySettings(): Promise<void>;
+  openBatteryOptimizationSettings(): Promise<void>;
+  openAutoStartSettings(): Promise<void>;
   getInstalledApps(): Promise<{ apps: { packageName: string; appName: string }[] }>;
+  /** Store focus start time natively for background-safe timer */
+  setFocusTimer(options: { startTime: number; durationSeconds: number }): Promise<void>;
+  /** Get remaining seconds from native clock */
+  getFocusTimerRemaining(): Promise<{ remaining: number }>;
+  /** Clear native timer */
+  clearFocusTimer(): Promise<void>;
 }
 
 const AppBlocker = registerPlugin<AppBlockerPlugin>('AppBlocker', {

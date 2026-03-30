@@ -4,8 +4,8 @@ import { Capacitor } from '@capacitor/core';
 import AppBlocker from '@/plugins/AppBlockerPlugin';
 
 /**
- * Component that checks native permissions on app launch.
- * If Accessibility Service is not enabled on Android, redirects to /permissions.
+ * Checks all critical permissions on native launch.
+ * Redirects to /permissions if any are missing.
  */
 export function NativePermissionGate({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
@@ -14,25 +14,27 @@ export function NativePermissionGate({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     const check = async () => {
-      // Only check on native Android
       if (!Capacitor.isNativePlatform()) {
         setChecked(true);
         return;
       }
 
-      // Don't redirect if already on permissions or auth page
+      // Skip redirect if already on permissions or auth
       if (location.pathname === '/permissions' || location.pathname === '/auth') {
         setChecked(true);
         return;
       }
 
       try {
-        const { enabled } = await AppBlocker.isAccessibilityEnabled();
-        if (!enabled) {
+        const [acc, usage] = await Promise.all([
+          AppBlocker.isAccessibilityEnabled(),
+          AppBlocker.isUsageAccessEnabled(),
+        ]);
+        if (!acc.enabled || !usage.enabled) {
           navigate('/permissions', { replace: true, state: { returnTo: location.pathname } });
         }
       } catch {
-        // If plugin fails, allow through
+        // Plugin error — allow through
       }
       setChecked(true);
     };

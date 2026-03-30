@@ -1,10 +1,6 @@
 import { WebPlugin } from '@capacitor/core';
 import type { AppBlockerPlugin } from './AppBlockerPlugin';
 
-/**
- * Web fallback — simulates blocking behavior in the browser.
- * Real blocking only works on Android via Accessibility Service.
- */
 export class AppBlockerWeb extends WebPlugin implements AppBlockerPlugin {
   async startBlocking(options: { packages: string[] }): Promise<void> {
     console.log('[AppBlocker Web] Simulated blocking:', options.packages);
@@ -17,16 +13,42 @@ export class AppBlockerWeb extends WebPlugin implements AppBlockerPlugin {
   }
 
   async isAccessibilityEnabled(): Promise<{ enabled: boolean }> {
-    // On web, we consider it always "enabled" since we use simulated blocking
+    return { enabled: true };
+  }
+
+  async isUsageAccessEnabled(): Promise<{ enabled: boolean }> {
+    return { enabled: true };
+  }
+
+  async isOverlayEnabled(): Promise<{ enabled: boolean }> {
+    return { enabled: true };
+  }
+
+  async isBatteryOptimizationDisabled(): Promise<{ enabled: boolean }> {
     return { enabled: true };
   }
 
   async openAccessibilitySettings(): Promise<void> {
-    console.log('[AppBlocker Web] Accessibility settings not available on web');
+    console.log('[AppBlocker Web] Not available on web');
+  }
+
+  async openUsageAccessSettings(): Promise<void> {
+    console.log('[AppBlocker Web] Not available on web');
+  }
+
+  async openOverlaySettings(): Promise<void> {
+    console.log('[AppBlocker Web] Not available on web');
+  }
+
+  async openBatteryOptimizationSettings(): Promise<void> {
+    console.log('[AppBlocker Web] Not available on web');
+  }
+
+  async openAutoStartSettings(): Promise<void> {
+    console.log('[AppBlocker Web] Not available on web');
   }
 
   async getInstalledApps(): Promise<{ apps: { packageName: string; appName: string }[] }> {
-    // Return predefined list on web
     return {
       apps: [
         { packageName: 'com.instagram.android', appName: 'Instagram' },
@@ -41,5 +63,24 @@ export class AppBlockerWeb extends WebPlugin implements AppBlockerPlugin {
         { packageName: 'com.netflix.mediaclient', appName: 'Netflix' },
       ],
     };
+  }
+
+  async setFocusTimer(options: { startTime: number; durationSeconds: number }): Promise<void> {
+    localStorage.setItem('focuslock_timer', JSON.stringify(options));
+  }
+
+  async getFocusTimerRemaining(): Promise<{ remaining: number }> {
+    try {
+      const data = JSON.parse(localStorage.getItem('focuslock_timer') || '{}');
+      if (data.startTime && data.durationSeconds) {
+        const elapsed = Math.floor((Date.now() - data.startTime) / 1000);
+        return { remaining: Math.max(0, data.durationSeconds - elapsed) };
+      }
+    } catch {}
+    return { remaining: 0 };
+  }
+
+  async clearFocusTimer(): Promise<void> {
+    localStorage.removeItem('focuslock_timer');
   }
 }
