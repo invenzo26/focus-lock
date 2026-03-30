@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BottomNav } from './BottomNav';
 import { FocusBanner } from './FocusBanner';
-import { BlockedScreen } from './BlockedScreen';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -18,7 +17,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </motion.div>
       </main>
       <BottomNav />
-      <BlockedScreen />
     </div>
   );
 }
