@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { isFocusActive, selectedSites, tryOpenSite } = useFocus();
+  const { isFocusActive, selectedApps } = useFocus();
   const [stats, setStats] = useState({ totalSessions: 0, streak: 0, walletBalance: 0, totalFocusMinutes: 0 });
 
   useEffect(() => {
@@ -71,21 +71,19 @@ export default function Dashboard() {
         </Link>
       </motion.div>
 
-      {/* Quick test block on dashboard */}
-      {isFocusActive && selectedSites.length > 0 && (
+      {/* Blocked apps during focus */}
+      {isFocusActive && selectedApps.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-4 neon-border">
-          <h3 className="text-sm font-semibold text-foreground mb-2">🔒 Blocked Sites ({selectedSites.length})</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-2">🔒 Blocked Apps ({selectedApps.length})</h3>
           <div className="flex flex-wrap gap-2">
-            {selectedSites.map(site => (
-              <motion.button key={site.id} whileTap={{ scale: 0.95 }}
-                onClick={() => tryOpenSite(site)}
-                className="glass rounded-lg px-3 py-1.5 text-xs text-muted-foreground flex items-center gap-1.5 border border-destructive/20 active:scale-95">
-                <span>{site.icon}</span>
-                <span>{site.name}</span>
-              </motion.button>
+            {selectedApps.map(app => (
+              <span key={app.packageName}
+                className="glass rounded-lg px-3 py-1.5 text-xs text-muted-foreground flex items-center gap-1.5 border border-destructive/20">
+                <span>{app.icon}</span>
+                <span>{app.appName}</span>
+              </span>
             ))}
           </div>
-          <p className="text-[10px] text-muted-foreground mt-2">Tap any site to test blocking</p>
         </motion.div>
       )}
 
@@ -107,7 +105,7 @@ export default function Dashboard() {
         <h3 className="text-sm font-semibold text-foreground">Quick Actions</h3>
         {[
           { to: '/focus', icon: Play, label: 'Quick Focus' },
-          { to: '/block', icon: Lock, label: 'Block Apps & Websites' },
+          { to: '/block', icon: Lock, label: 'Block Apps' },
           { to: '/history', icon: BarChart3, label: 'History' },
         ].map(({ to, icon: Icon, label }, i) => (
           <Link key={to} to={to}>

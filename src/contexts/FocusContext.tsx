@@ -4,44 +4,28 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNativeBlocker } from '@/hooks/useNativeBlocker';
 
-/** Maps website domains to Android package names for native blocking */
-const DOMAIN_TO_PACKAGE: Record<string, string> = {
-  'instagram.com': 'com.instagram.android',
-  'web.whatsapp.com': 'com.whatsapp',
-  'youtube.com': 'com.google.android.youtube',
-  'facebook.com': 'com.facebook.katana',
-  'twitter.com': 'com.twitter.android',
-  'tiktok.com': 'com.zhiliaoapp.musically',
-  'snapchat.com': 'com.snapchat.android',
-  'reddit.com': 'com.reddit.frontpage',
-  'discord.com': 'com.discord',
-  'netflix.com': 'com.netflix.mediaclient',
-};
-
-export interface BlockedSite {
-  id: string;
-  name: string;
-  domain: string;
+export interface BlockedApp {
+  appName: string;
+  packageName: string;
   icon: string;
-  isCustom?: boolean;
 }
 
-export const PREDEFINED_SITES: BlockedSite[] = [
-  { id: 'instagram', name: 'Instagram', domain: 'instagram.com', icon: '📸' },
-  { id: 'whatsapp', name: 'WhatsApp Web', domain: 'web.whatsapp.com', icon: '💬' },
-  { id: 'youtube', name: 'YouTube', domain: 'youtube.com', icon: '▶️' },
-  { id: 'facebook', name: 'Facebook', domain: 'facebook.com', icon: '📘' },
-  { id: 'twitter', name: 'Twitter / X', domain: 'twitter.com', icon: '✖️' },
-  { id: 'tiktok', name: 'TikTok', domain: 'tiktok.com', icon: '🎵' },
-  { id: 'snapchat', name: 'Snapchat', domain: 'snapchat.com', icon: '👻' },
-  { id: 'reddit', name: 'Reddit', domain: 'reddit.com', icon: '🔴' },
-  { id: 'discord', name: 'Discord', domain: 'discord.com', icon: '🎮' },
-  { id: 'netflix', name: 'Netflix', domain: 'netflix.com', icon: '🎬' },
+export const POPULAR_APPS: BlockedApp[] = [
+  { appName: 'Instagram', packageName: 'com.instagram.android', icon: '📸' },
+  { appName: 'WhatsApp', packageName: 'com.whatsapp', icon: '💬' },
+  { appName: 'YouTube', packageName: 'com.google.android.youtube', icon: '▶️' },
+  { appName: 'Facebook', packageName: 'com.facebook.katana', icon: '📘' },
+  { appName: 'Twitter / X', packageName: 'com.twitter.android', icon: '✖️' },
+  { appName: 'TikTok', packageName: 'com.zhiliaoapp.musically', icon: '🎵' },
+  { appName: 'Snapchat', packageName: 'com.snapchat.android', icon: '👻' },
+  { appName: 'Reddit', packageName: 'com.reddit.frontpage', icon: '🔴' },
+  { appName: 'Discord', packageName: 'com.discord', icon: '🎮' },
+  { appName: 'Netflix', packageName: 'com.netflix.mediaclient', icon: '🎬' },
 ];
 
 interface FocusState {
   isFocusActive: boolean;
-  selectedSites: BlockedSite[];
+  selectedApps: BlockedApp[];
   remainingTime: number;
   totalDuration: number;
   penaltyAmount: number;
@@ -49,38 +33,35 @@ interface FocusState {
 }
 
 interface FocusContextValue extends FocusState {
-  savedBlockList: BlockedSite[];
-  setSavedBlockList: (sites: BlockedSite[]) => void;
-  startSession: (duration: number, sites: BlockedSite[], penalty: number) => Promise<void>;
+  savedBlockList: BlockedApp[];
+  setSavedBlockList: (apps: BlockedApp[]) => void;
+  startSession: (duration: number, apps: BlockedApp[], penalty: number) => Promise<void>;
   breakSession: () => Promise<boolean>;
   completeSession: () => Promise<void>;
   tick: () => void;
-  isSiteBlocked: (domain: string) => boolean;
-  tryOpenSite: (site: BlockedSite) => boolean; // returns true if blocked
-  blockedAttempt: BlockedSite | null;
-  clearBlockedAttempt: () => void;
 }
 
 const defaultValue: FocusContextValue = {
-  isFocusActive: false, selectedSites: [], remainingTime: 0, totalDuration: 0,
+  isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0,
   penaltyAmount: 0, sessionId: null, savedBlockList: [], setSavedBlockList: () => {},
   startSession: async () => {}, breakSession: async () => false, completeSession: async () => {},
-  tick: () => {}, isSiteBlocked: () => false, tryOpenSite: () => false,
-  blockedAttempt: null, clearBlockedAttempt: () => {},
+  tick: () => {},
 };
 
 const FocusContext = createContext<FocusContextValue>(defaultValue);
 
 export function useFocus() {
-  return useContext(FocusContext);
+  const ctx = useContext(FocusContext);
+  if (!ctx) throw new Error('useFocus must be used within FocusProvider');
+  return ctx;
 }
 
 export function FocusProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { startNativeBlocking, stopNativeBlocking } = useNativeBlocker();
 
-  const [savedBlockList, setSavedBlockListState] = useState<BlockedSite[]>(() => {
-    try { return JSON.parse(localStorage.getItem('focuslock_saved_sites') || '[]'); } catch { return []; }
+  const [savedBlockList, setSavedBlockListState] = useState<BlockedApp[]>(() => {
+    try { return JSON.parse(localStorage.getItem('focuslock_saved_apps') || '[]'); } catch { return []; }
   });
 
   const [focus, setFocus] = useState<FocusState>(() => {
@@ -91,14 +72,12 @@ export function FocusProvider({ children }: { children: ReactNode }) {
         if (parsed.isFocusActive && parsed.remainingTime > 0) return parsed;
       }
     } catch {}
-    return { isFocusActive: false, selectedSites: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null };
+    return { isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null };
   });
 
-  const [blockedAttempt, setBlockedAttempt] = useState<BlockedSite | null>(null);
-
-  const setSavedBlockList = useCallback((sites: BlockedSite[]) => {
-    setSavedBlockListState(sites);
-    localStorage.setItem('focuslock_saved_sites', JSON.stringify(sites));
+  const setSavedBlockList = useCallback((apps: BlockedApp[]) => {
+    setSavedBlockListState(apps);
+    localStorage.setItem('focuslock_saved_apps', JSON.stringify(apps));
   }, []);
 
   useEffect(() => {
@@ -109,29 +88,25 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     }
   }, [focus]);
 
-  const startSession = useCallback(async (duration: number, sites: BlockedSite[], penalty: number) => {
+  const startSession = useCallback(async (duration: number, apps: BlockedApp[], penalty: number) => {
     if (!user) return;
-    const appIds = sites.map(s => s.domain);
+    const packageNames = apps.map(a => a.packageName);
     const { data, error } = await supabase
       .from('focus_sessions')
-      .insert({ user_id: user.id, duration_minutes: duration, penalty_amount: penalty, blocked_apps: appIds, status: 'active' })
+      .insert({ user_id: user.id, duration_minutes: duration, penalty_amount: penalty, blocked_apps: packageNames, status: 'active' })
       .select().single();
     if (error) { toast.error('Failed to start session'); return; }
 
-    // Activate native app blocking on Android
-    const packageNames = sites
-      .map(s => DOMAIN_TO_PACKAGE[s.domain])
-      .filter(Boolean);
     if (packageNames.length > 0) {
       await startNativeBlocking(packageNames);
     }
 
     setFocus({
-      isFocusActive: true, selectedSites: sites,
+      isFocusActive: true, selectedApps: apps,
       remainingTime: duration * 60, totalDuration: duration * 60,
       penaltyAmount: penalty, sessionId: data.id,
     });
-    toast.success(`Focus started! ${sites.length} sites blocked 🔒`);
+    toast.success(`Focus started! ${apps.length} apps blocked 🔒`);
   }, [user, startNativeBlocking]);
 
   const breakSession = useCallback(async (): Promise<boolean> => {
@@ -144,11 +119,9 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     await supabase.from('focus_sessions').update({ status: 'broken', ended_at: new Date().toISOString() }).eq('id', focus.sessionId);
     await supabase.from('payments').insert({ user_id: user.id, amount: focus.penaltyAmount, type: 'penalty', status: 'completed', session_id: focus.sessionId });
 
-    // Stop native blocking
     await stopNativeBlocking();
 
-    setFocus({ isFocusActive: false, selectedSites: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null });
-    setBlockedAttempt(null);
+    setFocus({ isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null });
     toast.error(`₹${focus.penaltyAmount} deducted. Stay stronger! 💪`);
     return true;
   }, [user, focus, stopNativeBlocking]);
@@ -163,9 +136,8 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       await supabase.from('profiles').update({ wallet_balance: profile.wallet_balance + reward }).eq('id', user.id);
       await supabase.from('payments').insert({ user_id: user.id, amount: reward, type: 'reward', status: 'completed', session_id: focus.sessionId });
     }
-    // Stop native blocking
     await stopNativeBlocking();
-    setFocus({ isFocusActive: false, selectedSites: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null });
+    setFocus({ isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null });
     toast.success('Session complete! +50 coins 🎉');
   }, [user, focus.sessionId, stopNativeBlocking]);
 
@@ -173,30 +145,10 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     setFocus(prev => ({ ...prev, remainingTime: Math.max(0, prev.remainingTime - 1) }));
   }, []);
 
-  const isSiteBlocked = useCallback((domain: string) => {
-    if (!focus.isFocusActive) return false;
-    const d = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '');
-    return focus.selectedSites.some(s => {
-      const sd = s.domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/.*$/, '');
-      return d.includes(sd) || sd.includes(d);
-    });
-  }, [focus.isFocusActive, focus.selectedSites]);
-
-  const tryOpenSite = useCallback((site: BlockedSite): boolean => {
-    if (!focus.isFocusActive) return false;
-    if (isSiteBlocked(site.domain)) {
-      setBlockedAttempt(site);
-      return true;
-    }
-    return false;
-  }, [focus.isFocusActive, isSiteBlocked]);
-
-  const clearBlockedAttempt = useCallback(() => setBlockedAttempt(null), []);
-
   return (
     <FocusContext.Provider value={{
       ...focus, savedBlockList, setSavedBlockList, startSession, breakSession,
-      completeSession, tick, isSiteBlocked, tryOpenSite, blockedAttempt, clearBlockedAttempt,
+      completeSession, tick,
     }}>
       {children}
     </FocusContext.Provider>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Pause, Play, Unlock, Zap, ExternalLink, ShieldAlert } from 'lucide-react';
-import { useFocus, PREDEFINED_SITES } from '@/contexts/FocusContext';
+import { Pause, Play, Unlock, Zap, ShieldAlert } from 'lucide-react';
+import { useFocus, POPULAR_APPS } from '@/contexts/FocusContext';
 import { BreakFocusDialog } from '@/components/BreakFocusDialog';
 import { StartFocusModal } from '@/components/StartFocusModal';
 import { SessionCompleteModal } from '@/components/SessionCompleteModal';
@@ -9,7 +9,7 @@ import { SessionCompleteModal } from '@/components/SessionCompleteModal';
 export default function FocusSession() {
   const {
     isFocusActive, remainingTime, totalDuration, penaltyAmount,
-    selectedSites, startSession, breakSession, completeSession, tick, tryOpenSite,
+    selectedApps, startSession, breakSession, completeSession, tick,
   } = useFocus();
 
   const [isPaused, setIsPaused] = useState(false);
@@ -36,19 +36,16 @@ export default function FocusSession() {
   const strokeDashoffset = circumference * (1 - progress);
 
   const handleStartSetup = () => setShowSetup(true);
-  const handleStartSession = async (duration: number, sites: any[], penalty: number) => {
+  const handleStartSession = async (duration: number, apps: any[], penalty: number) => {
     setShowSetup(false);
     setIsPaused(false);
-    await startSession(duration, sites, penalty);
+    await startSession(duration, apps, penalty);
   };
 
   const handleBreak = async () => {
     setShowBreakDialog(false);
     await breakSession();
   };
-
-  // Test sites for simulation
-  const testSites = PREDEFINED_SITES.slice(0, 5);
 
   return (
     <div className="flex flex-col items-center pt-4 pb-4">
@@ -78,14 +75,14 @@ export default function FocusSession() {
         </div>
       </motion.div>
 
-      {/* Blocked sites badges */}
-      {isFocusActive && selectedSites.length > 0 && (
+      {/* Blocked apps badges */}
+      {isFocusActive && selectedApps.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-1.5 justify-center mb-4 px-4">
-          {selectedSites.slice(0, 5).map(s => (
-            <span key={s.id} className="glass rounded-full px-2.5 py-1 text-[10px] text-muted-foreground">{s.icon} {s.name}</span>
+          {selectedApps.slice(0, 5).map(a => (
+            <span key={a.packageName} className="glass rounded-full px-2.5 py-1 text-[10px] text-muted-foreground">{a.icon} {a.appName}</span>
           ))}
-          {selectedSites.length > 5 && (
-            <span className="glass rounded-full px-2.5 py-1 text-[10px] text-muted-foreground">+{selectedSites.length - 5}</span>
+          {selectedApps.length > 5 && (
+            <span className="glass rounded-full px-2.5 py-1 text-[10px] text-muted-foreground">+{selectedApps.length - 5}</span>
           )}
         </motion.div>
       )}
@@ -115,44 +112,27 @@ export default function FocusSession() {
         </>
       )}
 
-      {/* Test Block Section */}
-      {isFocusActive && (
+      {/* Blocked apps list during focus */}
+      {isFocusActive && selectedApps.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 w-full max-w-xs">
           <div className="flex items-center gap-2 mb-3">
             <ShieldAlert className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Test Blocking</h3>
+            <h3 className="text-sm font-semibold text-foreground">Blocked Apps</h3>
           </div>
-          <p className="text-xs text-muted-foreground mb-3">Try opening these sites — blocked ones will be intercepted</p>
           <div className="space-y-2">
-            {testSites.map(site => {
-              const isBlocked = selectedSites.some(s => s.id === site.id);
-              return (
-                <motion.button key={site.id} whileTap={{ scale: 0.97 }}
-                  onClick={() => {
-                    if (!tryOpenSite(site)) {
-                      window.open(`https://${site.domain}`, '_blank');
-                    }
-                  }}
-                  className={`w-full rounded-xl p-3 flex items-center justify-between active:scale-[0.98] transition-transform ${
-                    isBlocked ? 'glass border border-destructive/30' : 'glass'
-                  }`}>
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">{site.icon}</span>
-                    <div className="text-left">
-                      <span className="text-sm font-medium text-foreground">{site.name}</span>
-                      <span className="text-[10px] text-muted-foreground block">{site.domain}</span>
-                    </div>
+            {selectedApps.map(app => (
+              <div key={app.packageName}
+                className="w-full rounded-xl p-3 flex items-center justify-between glass border border-destructive/30">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{app.icon}</span>
+                  <div className="text-left">
+                    <span className="text-sm font-medium text-foreground">{app.appName}</span>
+                    <span className="text-[10px] text-muted-foreground block">{app.packageName}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {isBlocked ? (
-                      <span className="text-[10px] text-destructive font-semibold px-2 py-0.5 rounded-full bg-destructive/10">BLOCKED</span>
-                    ) : (
-                      <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                    )}
-                  </div>
-                </motion.button>
-              );
-            })}
+                </div>
+                <span className="text-[10px] text-destructive font-semibold px-2 py-0.5 rounded-full bg-destructive/10">BLOCKED</span>
+              </div>
+            ))}
           </div>
         </motion.div>
       )}

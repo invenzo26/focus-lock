@@ -4,7 +4,7 @@ import { useFocus } from '@/contexts/FocusContext';
 import { Link } from 'react-router-dom';
 
 export function FocusBanner() {
-  const { isFocusActive, remainingTime, selectedSites } = useFocus();
+  const { isFocusActive, remainingTime, selectedApps } = useFocus();
   if (!isFocusActive) return null;
 
   const m = Math.floor(remainingTime / 60);
@@ -20,7 +20,7 @@ export function FocusBanner() {
         <div className="flex items-center gap-2 text-primary-foreground">
           <Flame className="w-4 h-4" />
           <span className="text-sm font-semibold">Focus Active</span>
-          <span className="text-[10px] opacity-75">• {selectedSites.length} blocked</span>
+          <span className="text-[10px] opacity-75">• {selectedApps.length} blocked</span>
         </div>
         <div className="flex items-center gap-1.5 text-primary-foreground">
           <Lock className="w-3 h-3" />
