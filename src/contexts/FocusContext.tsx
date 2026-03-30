@@ -72,7 +72,9 @@ function computeRemaining(startedAt: number | null, totalDuration: number): numb
 
 export function FocusProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { startNativeBlocking, stopNativeBlocking } = useNativeBlocker();
+  const { isNative, startNativeBlocking, stopNativeBlocking } = useNativeBlocker();
+  const restoringRef = useRef(false);
+  const startingRef = useRef(false);
 
   const [savedBlockList, setSavedBlockListState] = useState<BlockedApp[]>(() => {
     try { return JSON.parse(localStorage.getItem('focuslock_saved_apps') || '[]'); } catch { return []; }
@@ -106,33 +108,126 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     }
   }, [focus]);
 
+  useEffect(() => {
+    if (restoringRef.current) return;
+    restoringRef.current = true;
+
+    const restoreNativeSession = async () => {
+      if (!focus.isFocusActive) return;
+
+      const remaining = computeRemaining(focus.startedAt, focus.totalDuration);
+
+      if (remaining <= 0) {
+        try {
+          await stopNativeBlocking();
+        } catch {}
+
+        try {
+          await AppBlocker.clearFocusTimer();
+        } catch {}
+
+        setFocus({
+          isFocusActive: false,
+          selectedApps: [],
+          remainingTime: 0,
+          totalDuration: 0,
+          penaltyAmount: 0,
+          sessionId: null,
+          startedAt: null,
+        });
+        return;
+      }
+
+      setFocus((prev) => ({ ...prev, remainingTime: remaining }));
+
+      if (!isNative || focus.selectedApps.length === 0) return;
+
+      try {
+        await startNativeBlocking(focus.selectedApps.map((app) => app.packageName));
+        if (focus.startedAt) {
+          await AppBlocker.setFocusTimer({
+            startTime: focus.startedAt,
+            durationSeconds: focus.totalDuration,
+          });
+        }
+      } catch (error) {
+        console.error('[FocusContext] Failed to restore native blocking:', error);
+        toast.error('Focus mode was restored without Android blocking, so it has been stopped for safety.');
+        try {
+          await stopNativeBlocking();
+        } catch {}
+        try {
+          await AppBlocker.clearFocusTimer();
+        } catch {}
+        setFocus({
+          isFocusActive: false,
+          selectedApps: [],
+          remainingTime: 0,
+          totalDuration: 0,
+          penaltyAmount: 0,
+          sessionId: null,
+          startedAt: null,
+        });
+      }
+    };
+
+    restoreNativeSession();
+  }, [focus.isFocusActive, focus.selectedApps, focus.startedAt, focus.totalDuration, isNative, startNativeBlocking, stopNativeBlocking]);
+
   const startSession = useCallback(async (duration: number, apps: BlockedApp[], penalty: number) => {
     if (!user) return;
-    const packageNames = apps.map(a => a.packageName);
-    const { data, error } = await supabase
-      .from('focus_sessions')
-      .insert({ user_id: user.id, duration_minutes: duration, penalty_amount: penalty, blocked_apps: packageNames, status: 'active' })
-      .select().single();
-    if (error) { toast.error('Failed to start session'); return; }
+    if (startingRef.current) return;
 
-    if (packageNames.length > 0) {
-      await startNativeBlocking(packageNames);
+    if (apps.length === 0) {
+      toast.error('Select at least one app to block.');
+      return;
     }
 
-    const startedAt = Date.now();
-    const totalDuration = duration * 60;
+    startingRef.current = true;
+    const packageNames = apps.map(a => a.packageName);
 
-    // Store start time natively for background accuracy
-    try { await AppBlocker.setFocusTimer({ startTime: startedAt, durationSeconds: totalDuration }); } catch {}
+    try {
+      await startNativeBlocking(packageNames);
 
-    setFocus({
-      isFocusActive: true, selectedApps: apps,
-      remainingTime: totalDuration, totalDuration,
-      penaltyAmount: penalty, sessionId: data.id,
-      startedAt,
-    });
-    toast.success(`Focus started! ${apps.length} apps blocked 🔒`);
-  }, [user, startNativeBlocking]);
+      const { data, error } = await supabase
+        .from('focus_sessions')
+        .insert({ user_id: user.id, duration_minutes: duration, penalty_amount: penalty, blocked_apps: packageNames, status: 'active' })
+        .select().single();
+
+      if (error) {
+        try {
+          await stopNativeBlocking();
+        } catch {}
+        toast.error('Failed to start session');
+        return;
+      }
+
+      const startedAt = Date.now();
+      const totalDuration = duration * 60;
+
+      try {
+        await AppBlocker.setFocusTimer({ startTime: startedAt, durationSeconds: totalDuration });
+      } catch (timerError) {
+        console.error('[FocusContext] Failed to persist native timer:', timerError);
+      }
+
+      setFocus({
+        isFocusActive: true, selectedApps: apps,
+        remainingTime: totalDuration, totalDuration,
+        penaltyAmount: penalty, sessionId: data.id,
+        startedAt,
+      });
+      toast.success(`Focus started! ${apps.length} apps blocked 🔒`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to enable Android app blocking.';
+      toast.error(message);
+      try {
+        await stopNativeBlocking();
+      } catch {}
+    } finally {
+      startingRef.current = false;
+    }
+  }, [user, startNativeBlocking, stopNativeBlocking]);
 
   const breakSession = useCallback(async (): Promise<boolean> => {
     if (!user || !focus.sessionId) return false;

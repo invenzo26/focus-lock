@@ -12,6 +12,15 @@ export class AppBlockerWeb extends WebPlugin implements AppBlockerPlugin {
     localStorage.removeItem('focuslock_native_blocked');
   }
 
+  async getBlockingStatus(): Promise<{ active: boolean; packages: string[] }> {
+    try {
+      const packages = JSON.parse(localStorage.getItem('focuslock_native_blocked') || '[]');
+      return { active: Array.isArray(packages) && packages.length > 0, packages: Array.isArray(packages) ? packages : [] };
+    } catch {
+      return { active: false, packages: [] };
+    }
+  }
+
   async isAccessibilityEnabled(): Promise<{ enabled: boolean }> {
     return { enabled: true };
   }

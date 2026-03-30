@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Clock, Zap } from 'lucide-react';
 import { useFocus, POPULAR_APPS, BlockedApp } from '@/contexts/FocusContext';
@@ -23,6 +23,12 @@ export function StartFocusModal({ open, onClose, onStart }: Props) {
   const [customDuration, setCustomDuration] = useState('');
   const [isCustomDuration, setIsCustomDuration] = useState(false);
   const [penalty, setPenalty] = useState(20);
+
+  useEffect(() => {
+    if (!open) return;
+    setStep('apps');
+    setSelectedApps(savedBlockList.length > 0 ? savedBlockList : []);
+  }, [open, savedBlockList]);
 
   const toggleApp = (app: BlockedApp) => {
     setSelectedApps(prev =>

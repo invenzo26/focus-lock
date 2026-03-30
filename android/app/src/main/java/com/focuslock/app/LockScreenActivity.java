@@ -24,7 +24,8 @@ public class LockScreenActivity extends Activity {
 
     private static final String TAG = "FocusLockScreen";
     private static final String PREFS_NAME = "FocusLockPrefs";
-    private Handler handler = new Handler(Looper.getMainLooper());
+    private static final String KEY_EXIT_GRACE_UNTIL = "exit_grace_until";
+    private static final long EXIT_GRACE_MS = 2500L;
     private boolean isNavigatingToApp = false;
 
     @Override
@@ -122,6 +123,8 @@ public class LockScreenActivity extends Activity {
 
         continueBtn.setOnClickListener(v -> {
             isNavigatingToApp = true;
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit().putLong(KEY_EXIT_GRACE_UNTIL, System.currentTimeMillis() + EXIT_GRACE_MS).commit();
             Intent intent = getPackageManager().getLaunchIntentForPackage(getPackageName());
             if (intent != null) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);

@@ -59,11 +59,46 @@ export function useNativeBlocker() {
     permissions.batteryOptimization === true;
 
   const startNativeBlocking = async (packageNames: string[]) => {
-    try { await AppBlocker.startBlocking({ packages: packageNames }); } catch (e) { console.error('[NativeBlocker] Failed to start:', e); }
+    if (packageNames.length === 0) {
+      throw new Error('Select at least one app to block.');
+    }
+
+    if (isNative) {
+      const [accessibility, usageAccess] = await Promise.all([
+        AppBlocker.isAccessibilityEnabled(),
+        AppBlocker.isUsageAccessEnabled(),
+      ]);
+
+      if (!accessibility.enabled) {
+        throw new Error('Enable Accessibility Service before starting focus mode.');
+      }
+
+      if (!usageAccess.enabled) {
+        throw new Error('Enable Usage Access before starting focus mode.');
+      }
+    }
+
+    await AppBlocker.startBlocking({ packages: packageNames });
+
+    const status = await AppBlocker.getBlockingStatus();
+    const allPackagesSaved = packageNames.every((pkg) => status.packages.includes(pkg));
+
+    if (!status.active || !allPackagesSaved) {
+      throw new Error('Native blocker did not start correctly.');
+    }
+
+    return true;
   };
 
   const stopNativeBlocking = async () => {
-    try { await AppBlocker.stopBlocking(); } catch (e) { console.error('[NativeBlocker] Failed to stop:', e); }
+    await AppBlocker.stopBlocking();
+
+    const status = await AppBlocker.getBlockingStatus();
+    if (status.active) {
+      throw new Error('Native blocker did not stop correctly.');
+    }
+
+    return true;
   };
 
   const openAccessibilitySettings = async () => { if (isNative) await AppBlocker.openAccessibilitySettings(); };
