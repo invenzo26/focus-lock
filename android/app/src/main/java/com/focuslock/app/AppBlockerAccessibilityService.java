@@ -18,6 +18,7 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
     private static final String PREFS_NAME = "FocusLockPrefs";
     private static final String KEY_PACKAGES = "packages";
     private static final String KEY_BLOCKING = "blocking";
+    private static final long BLOCK_DEBOUNCE_MS = 2000;
 
     private String lastBlockedPackage = "";
     private long lastBlockedTime = 0;
@@ -76,8 +77,8 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
                 if (packageName.equals(blockedPkg)) {
                     long now = System.currentTimeMillis();
 
-                    // Debounce: prevent rapid-fire lock screens
-                    if (packageName.equals(lastBlockedPackage) && (now - lastBlockedTime) < 800) {
+                    // Debounce: prevent repeated lock loops for the same app
+                    if (packageName.equals(lastBlockedPackage) && (now - lastBlockedTime) < BLOCK_DEBOUNCE_MS) {
                         return;
                     }
 
@@ -89,16 +90,9 @@ public class AppBlockerAccessibilityService extends AccessibilityService {
                     // Step 1: Force go home first to close the blocked app
                     performGlobalAction(GLOBAL_ACTION_HOME);
 
-                    // Step 2: Launch lock screen after a tiny delay
+                    // Step 2: Launch lock screen once after a tiny delay
+                    handler.removeCallbacksAndMessages(null);
                     handler.postDelayed(() -> launchLockScreen(packageName), 150);
-
-                    // Step 3: Re-enforce after another delay (anti-bypass for MIUI/Samsung)
-                    handler.postDelayed(() -> {
-                        SharedPreferences p = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                        if (p.getBoolean(KEY_BLOCKING, false)) {
-                            launchLockScreen(packageName);
-                        }
-                    }, 600);
 
                     return;
                 }

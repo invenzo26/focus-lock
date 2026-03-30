@@ -25,6 +25,7 @@ public class LockScreenActivity extends Activity {
     private static final String TAG = "FocusLockScreen";
     private static final String PREFS_NAME = "FocusLockPrefs";
     private Handler handler = new Handler(Looper.getMainLooper());
+    private boolean isNavigatingToApp = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -120,6 +121,7 @@ public class LockScreenActivity extends Activity {
         continueBtn.setPadding(dp(32), dp(18), dp(32), dp(18));
 
         continueBtn.setOnClickListener(v -> {
+            isNavigatingToApp = true;
             Intent intent = getPackageManager().getLaunchIntentForPackage(getPackageName());
             if (intent != null) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -141,36 +143,14 @@ public class LockScreenActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        // If blocking is still active, relaunch lock screen to prevent bypass
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (prefs.getBoolean("blocking", false)) {
-            Log.d(TAG, "onPause — relaunching lock screen");
-            handler.postDelayed(() -> {
-                SharedPreferences p = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                if (p.getBoolean("blocking", false)) {
-                    Intent intent = new Intent(this, LockScreenActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                            | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                            | Intent.FLAG_ACTIVITY_NO_ANIMATION);
-                    startActivity(intent);
-                }
-            }, 200);
+        if (isNavigatingToApp) {
+            Log.d(TAG, "onPause — returning to FocusLock app");
         }
     }
 
     @Override
     public void onUserLeaveHint() {
         super.onUserLeaveHint();
-        // User pressed Home — relaunch if blocking
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (prefs.getBoolean("blocking", false)) {
-            Log.d(TAG, "onUserLeaveHint — relaunching lock screen");
-            handler.postDelayed(() -> {
-                Intent intent = new Intent(this, LockScreenActivity.class);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                startActivity(intent);
-            }, 300);
-        }
     }
 
     @Override
