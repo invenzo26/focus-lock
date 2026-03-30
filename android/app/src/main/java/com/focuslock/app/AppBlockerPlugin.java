@@ -88,11 +88,7 @@ public class AppBlockerPlugin extends Plugin {
 
         Intent serviceIntent = new Intent(getContext(), AppBlockerService.class);
         serviceIntent.setAction(AppBlockerService.ACTION_STOP_BLOCKING);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getContext().startForegroundService(serviceIntent);
-        } else {
-            getContext().startService(serviceIntent);
-        }
+        getContext().startService(serviceIntent);
 
         call.resolve();
     }
