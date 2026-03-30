@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNativeBlocker } from '@/hooks/useNativeBlocker';
+import AppBlocker from '@/plugins/AppBlockerPlugin';
 
 export interface BlockedApp {
   appName: string;
@@ -30,6 +31,8 @@ interface FocusState {
   totalDuration: number;
   penaltyAmount: number;
   sessionId: string | null;
+  /** Epoch ms when session started — used for background-safe timing */
+  startedAt: number | null;
 }
 
 interface FocusContextValue extends FocusState {
@@ -43,7 +46,8 @@ interface FocusContextValue extends FocusState {
 
 const defaultValue: FocusContextValue = {
   isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0,
-  penaltyAmount: 0, sessionId: null, savedBlockList: [], setSavedBlockList: () => {},
+  penaltyAmount: 0, sessionId: null, startedAt: null,
+  savedBlockList: [], setSavedBlockList: () => {},
   startSession: async () => {}, breakSession: async () => false, completeSession: async () => {},
   tick: () => {},
 };
@@ -54,6 +58,16 @@ export function useFocus() {
   const ctx = useContext(FocusContext);
   if (!ctx) throw new Error('useFocus must be used within FocusProvider');
   return ctx;
+}
+
+/**
+ * Compute remaining seconds from a stored start time.
+ * This is immune to app backgrounding — it always uses the real clock.
+ */
+function computeRemaining(startedAt: number | null, totalDuration: number): number {
+  if (!startedAt || !totalDuration) return 0;
+  const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+  return Math.max(0, totalDuration - elapsed);
 }
 
 export function FocusProvider({ children }: { children: ReactNode }) {
@@ -69,10 +83,13 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       const saved = localStorage.getItem('focuslock_active_session');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.isFocusActive && parsed.remainingTime > 0) return parsed;
+        if (parsed.isFocusActive && parsed.startedAt) {
+          const remaining = computeRemaining(parsed.startedAt, parsed.totalDuration);
+          if (remaining > 0) return { ...parsed, remainingTime: remaining };
+        }
       }
     } catch {}
-    return { isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null };
+    return { isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null, startedAt: null };
   });
 
   const setSavedBlockList = useCallback((apps: BlockedApp[]) => {
@@ -80,6 +97,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('focuslock_saved_apps', JSON.stringify(apps));
   }, []);
 
+  // Persist active session
   useEffect(() => {
     if (focus.isFocusActive) {
       localStorage.setItem('focuslock_active_session', JSON.stringify(focus));
@@ -101,10 +119,17 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       await startNativeBlocking(packageNames);
     }
 
+    const startedAt = Date.now();
+    const totalDuration = duration * 60;
+
+    // Store start time natively for background accuracy
+    try { await AppBlocker.setFocusTimer({ startTime: startedAt, durationSeconds: totalDuration }); } catch {}
+
     setFocus({
       isFocusActive: true, selectedApps: apps,
-      remainingTime: duration * 60, totalDuration: duration * 60,
+      remainingTime: totalDuration, totalDuration,
       penaltyAmount: penalty, sessionId: data.id,
+      startedAt,
     });
     toast.success(`Focus started! ${apps.length} apps blocked 🔒`);
   }, [user, startNativeBlocking]);
@@ -120,8 +145,9 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     await supabase.from('payments').insert({ user_id: user.id, amount: focus.penaltyAmount, type: 'penalty', status: 'completed', session_id: focus.sessionId });
 
     await stopNativeBlocking();
+    try { await AppBlocker.clearFocusTimer(); } catch {}
 
-    setFocus({ isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null });
+    setFocus({ isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null, startedAt: null });
     toast.error(`₹${focus.penaltyAmount} deducted. Stay stronger! 💪`);
     return true;
   }, [user, focus, stopNativeBlocking]);
@@ -137,12 +163,21 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       await supabase.from('payments').insert({ user_id: user.id, amount: reward, type: 'reward', status: 'completed', session_id: focus.sessionId });
     }
     await stopNativeBlocking();
-    setFocus({ isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null });
+    try { await AppBlocker.clearFocusTimer(); } catch {}
+    setFocus({ isFocusActive: false, selectedApps: [], remainingTime: 0, totalDuration: 0, penaltyAmount: 0, sessionId: null, startedAt: null });
     toast.success('Session complete! +50 coins 🎉');
   }, [user, focus.sessionId, stopNativeBlocking]);
 
+  /**
+   * Tick uses system clock, not decrement.
+   * This means coming back from background instantly shows correct time.
+   */
   const tick = useCallback(() => {
-    setFocus(prev => ({ ...prev, remainingTime: Math.max(0, prev.remainingTime - 1) }));
+    setFocus(prev => {
+      if (!prev.startedAt) return prev;
+      const remaining = computeRemaining(prev.startedAt, prev.totalDuration);
+      return { ...prev, remainingTime: remaining };
+    });
   }, []);
 
   return (

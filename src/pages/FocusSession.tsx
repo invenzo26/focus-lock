@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Pause, Play, Unlock, Zap, ShieldAlert } from 'lucide-react';
-import { useFocus, POPULAR_APPS } from '@/contexts/FocusContext';
+import { useFocus } from '@/contexts/FocusContext';
 import { BreakFocusDialog } from '@/components/BreakFocusDialog';
 import { StartFocusModal } from '@/components/StartFocusModal';
 import { SessionCompleteModal } from '@/components/SessionCompleteModal';
@@ -12,22 +12,43 @@ export default function FocusSession() {
     selectedApps, startSession, breakSession, completeSession, tick,
   } = useFocus();
 
-  const [isPaused, setIsPaused] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [showBreakDialog, setShowBreakDialog] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [completedDuration, setCompletedDuration] = useState(0);
+  const completingRef = useRef(false);
 
+  // Tick every second using system clock (via tick())
   useEffect(() => {
-    if (!isFocusActive || isPaused) return;
-    if (remainingTime <= 0) {
-      setCompletedDuration(Math.round(totalDuration / 60));
-      completeSession().then(() => setShowComplete(true));
-      return;
-    }
+    if (!isFocusActive) return;
+    // Immediately sync on mount/resume
+    tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [isFocusActive, isPaused, remainingTime, tick, completeSession, totalDuration]);
+  }, [isFocusActive, tick]);
+
+  // Also sync on visibility change (app resume)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && isFocusActive) {
+        tick();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isFocusActive, tick]);
+
+  // Complete when timer hits 0
+  useEffect(() => {
+    if (isFocusActive && remainingTime <= 0 && !completingRef.current) {
+      completingRef.current = true;
+      setCompletedDuration(Math.round(totalDuration / 60));
+      completeSession().then(() => {
+        setShowComplete(true);
+        completingRef.current = false;
+      });
+    }
+  }, [isFocusActive, remainingTime, totalDuration, completeSession]);
 
   const minutes = Math.floor(remainingTime / 60);
   const seconds = remainingTime % 60;
@@ -38,7 +59,6 @@ export default function FocusSession() {
   const handleStartSetup = () => setShowSetup(true);
   const handleStartSession = async (duration: number, apps: any[], penalty: number) => {
     setShowSetup(false);
-    setIsPaused(false);
     await startSession(duration, apps, penalty);
   };
 
@@ -70,7 +90,7 @@ export default function FocusSession() {
             {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
           </span>
           <span className="text-sm text-muted-foreground mt-1">
-            {isFocusActive ? (isPaused ? 'paused' : 'remaining') : 'ready'}
+            {isFocusActive ? 'remaining' : 'ready'}
           </span>
         </div>
       </motion.div>
@@ -95,24 +115,15 @@ export default function FocusSession() {
           Start Focusing
         </motion.button>
       ) : (
-        <>
-          <div className="flex items-center gap-6 mt-6">
-            <button onClick={() => setIsPaused(p => !p)}
-              className="w-16 h-16 rounded-full gradient-primary glow-neon flex items-center justify-center active:scale-95 transition-transform">
-              {isPaused ? <Play className="w-7 h-7 text-primary-foreground ml-0.5" /> : <Pause className="w-7 h-7 text-primary-foreground" />}
-            </button>
-          </div>
-
-          <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            onClick={() => setShowBreakDialog(true)}
-            className="mt-8 px-6 py-3 rounded-xl border border-destructive/40 text-destructive text-sm font-semibold flex items-center gap-2 active:scale-95 transition-transform">
-            <Unlock className="w-4 h-4" />
-            Break Focus (₹{penaltyAmount})
-          </motion.button>
-        </>
+        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          onClick={() => setShowBreakDialog(true)}
+          className="mt-8 px-6 py-3 rounded-xl border border-destructive/40 text-destructive text-sm font-semibold flex items-center gap-2 active:scale-95 transition-transform">
+          <Unlock className="w-4 h-4" />
+          Break Focus (₹{penaltyAmount})
+        </motion.button>
       )}
 
-      {/* Blocked apps list during focus */}
+      {/* Blocked apps list */}
       {isFocusActive && selectedApps.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 w-full max-w-xs">
           <div className="flex items-center gap-2 mb-3">
