@@ -42,7 +42,7 @@ public class AppBlockerService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        Notification notification = null;
+        Notification notification;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notification = new Notification.Builder(this, CHANNEL_ID)
                     .setContentTitle("FocusLock Active")
@@ -52,12 +52,17 @@ public class AppBlockerService extends Service {
                     .setOngoing(true)
                     .setCategory(Notification.CATEGORY_SERVICE)
                     .build();
+        } else {
+            notification = new Notification.Builder(this)
+                    .setContentTitle("FocusLock Active")
+                    .setContentText("Focus mode is running. Blocked apps are restricted.")
+                    .setSmallIcon(android.R.drawable.ic_lock_lock)
+                    .setContentIntent(pendingIntent)
+                    .setOngoing(true)
+                    .build();
         }
 
-        if (notification != null) {
-            startForeground(NOTIFICATION_ID, notification);
-        }
-
+        startForeground(NOTIFICATION_ID, notification);
         return START_STICKY;
     }
 
