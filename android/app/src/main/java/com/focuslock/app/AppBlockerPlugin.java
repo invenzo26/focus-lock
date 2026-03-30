@@ -41,7 +41,7 @@ public class AppBlockerPlugin extends Plugin {
         prefs.edit()
                 .putString(KEY_PACKAGES, packages.toString())
                 .putBoolean(KEY_BLOCKING, true)
-                .apply();
+                .commit();
 
         Intent serviceIntent = new Intent(getContext(), AppBlockerService.class);
         serviceIntent.setAction("START_BLOCKING");
@@ -62,7 +62,7 @@ public class AppBlockerPlugin extends Plugin {
         prefs.edit()
                 .putString(KEY_PACKAGES, "[]")
                 .putBoolean(KEY_BLOCKING, false)
-                .apply();
+                .commit();
 
         Intent serviceIntent = new Intent(getContext(), AppBlockerService.class);
         serviceIntent.setAction("STOP_BLOCKING");
