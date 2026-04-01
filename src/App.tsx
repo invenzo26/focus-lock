@@ -14,6 +14,10 @@ import HistoryPageRoute from "./pages/HistoryPageRoute";
 import WalletPageRoute from "./pages/WalletPageRoute";
 import ProfilePage from "./pages/ProfilePage";
 import PermissionsPage from "./pages/PermissionsPage";
+import LeaderboardPage from "./pages/LeaderboardPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import SchedulePage from "./pages/SchedulePage";
+import StorePage from "./pages/StorePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +40,10 @@ const App = () => (
                 <Route path="/wallet" element={<WalletPageRoute />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/permissions" element={<PermissionsPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/schedule" element={<SchedulePage />} />
+                <Route path="/store" element={<StorePage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </NativePermissionGate>

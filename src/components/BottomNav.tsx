@@ -1,14 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, Timer, Lock, BarChart3, User } from 'lucide-react';
+import { Home, Timer, Lock, BarChart3, User, Trophy, CalendarClock, ShoppingBag } from 'lucide-react';
 import { useFocus } from '@/contexts/FocusContext';
-import { toast } from 'sonner';
 
 const TABS = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/focus', icon: Timer, label: 'Focus' },
   { to: '/block', icon: Lock, label: 'Block' },
-  { to: '/history', icon: BarChart3, label: 'History' },
+  { to: '/leaderboard', icon: Trophy, label: 'Rank' },
   { to: '/profile', icon: User, label: 'Profile' },
 ];
 

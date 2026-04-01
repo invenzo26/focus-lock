@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          name: string
+          requirement_type: string
+          requirement_value: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          icon?: string
+          id?: string
+          name: string
+          requirement_type: string
+          requirement_value?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          requirement_type?: string
+          requirement_value?: number
+        }
+        Relationships: []
+      }
       focus_sessions: {
         Row: {
           blocked_apps: string[]
@@ -92,6 +122,7 @@ export type Database = {
           current_streak: number
           full_name: string | null
           id: string
+          preferred_sound: string | null
           total_focus_minutes: number
           updated_at: string
           wallet_balance: number
@@ -102,6 +133,7 @@ export type Database = {
           current_streak?: number
           full_name?: string | null
           id: string
+          preferred_sound?: string | null
           total_focus_minutes?: number
           updated_at?: string
           wallet_balance?: number
@@ -112,11 +144,133 @@ export type Database = {
           current_streak?: number
           full_name?: string | null
           id?: string
+          preferred_sound?: string | null
           total_focus_minutes?: number
           updated_at?: string
           wallet_balance?: number
         }
         Relationships: []
+      }
+      scheduled_sessions: {
+        Row: {
+          blocked_apps: string[]
+          created_at: string
+          days_of_week: number[]
+          end_time: string
+          id: string
+          is_active: boolean
+          start_time: string
+          user_id: string
+        }
+        Insert: {
+          blocked_apps?: string[]
+          created_at?: string
+          days_of_week?: number[]
+          end_time: string
+          id?: string
+          is_active?: boolean
+          start_time: string
+          user_id: string
+        }
+        Update: {
+          blocked_apps?: string[]
+          created_at?: string
+          days_of_week?: number[]
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          start_time?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      store_items: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          name: string
+          price_coins: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description: string
+          icon?: string
+          id?: string
+          name: string
+          price_coins: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          price_coins?: number
+        }
+        Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_purchases: {
+        Row: {
+          id: string
+          item_id: string
+          purchased_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          purchased_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          purchased_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_purchases_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "store_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

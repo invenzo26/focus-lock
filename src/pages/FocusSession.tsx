@@ -5,6 +5,7 @@ import { useFocus } from '@/contexts/FocusContext';
 import { BreakFocusDialog } from '@/components/BreakFocusDialog';
 import { StartFocusModal } from '@/components/StartFocusModal';
 import { SessionCompleteModal } from '@/components/SessionCompleteModal';
+import { FocusSounds } from '@/components/FocusSounds';
 
 export default function FocusSession() {
   const {
@@ -147,6 +148,9 @@ export default function FocusSession() {
           </div>
         </motion.div>
       )}
+
+      {/* Focus Sounds */}
+      {isFocusActive && <FocusSounds />}
 
       {/* Modals */}
       <StartFocusModal open={showSetup} onClose={() => setShowSetup(false)} onStart={handleStartSession} />
