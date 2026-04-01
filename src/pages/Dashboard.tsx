@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Coins, Flame, Zap, Play, Lock, BarChart3 } from 'lucide-react';
+import { Coins, Flame, Zap, Play, Lock, BarChart3, Trophy, CalendarClock, ShoppingBag } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFocus } from '@/contexts/FocusContext';
 import { supabase } from '@/integrations/supabase/client';
