@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, LogOut, Mail, Calendar, Trophy, Flame, Clock, Shield, ChevronRight, Bell, Moon, Volume2 } from 'lucide-react';
+import { User, LogOut, Mail, Calendar, Trophy, Flame, Clock, Shield, ChevronRight, Bell, Moon, Volume2, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useFocus } from '@/contexts/FocusContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
+import { AchievementsGrid } from '@/components/AchievementsGrid';
 import { toast } from 'sonner';
 
 interface ProfileData {
@@ -23,26 +23,42 @@ export default function ProfilePage() {
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
   const [sounds, setSounds] = useState(true);
+  const [sessionCount, setSessionCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('profiles').select('*').eq('id', user.id).single()
-      .then(({ data }) => { if (data) setProfile(data); });
+    const fetch = async () => {
+      const [{ data }, { count }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        supabase.from('focus_sessions').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'completed'),
+      ]);
+      if (data) setProfile(data);
+      setSessionCount(count || 0);
+    };
+    fetch();
   }, [user]);
 
   if (loading) return <div className="min-h-screen bg-background" />;
   if (!user) return <Navigate to="/auth" replace />;
 
   const handleLogout = async () => {
-    try {
-      await signOut();
-      toast.success('Logged out successfully');
-      navigate('/auth');
-    } catch { toast.error('Failed to log out'); }
+    try { await signOut(); toast.success('Logged out'); navigate('/auth'); }
+    catch { toast.error('Failed to log out'); }
+  };
+
+  const handleExport = async () => {
+    const { data: sessions } = await supabase.from('focus_sessions').select('*').eq('user_id', user.id);
+    const blob = new Blob([JSON.stringify({ profile, sessions }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'focuslock-data.json'; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Data exported!');
   };
 
   const joinDate = new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const totalHours = profile ? Math.floor(profile.total_focus_minutes / 60) : 0;
+  const initials = (profile?.full_name || user.email || 'U').slice(0, 2).toUpperCase();
 
   return (
     <AppLayout>
@@ -53,7 +69,7 @@ export default function ProfilePage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           className="glass rounded-2xl p-6 mb-5 flex items-center gap-4 neon-border">
           <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center glow-primary">
-            <User className="w-8 h-8 text-primary-foreground" />
+            <span className="text-xl font-bold text-primary-foreground">{initials}</span>
           </div>
           <div className="flex-1">
             <h2 className="text-lg font-bold text-foreground">{profile?.full_name || 'FocusLock User'}</h2>
@@ -67,14 +83,15 @@ export default function ProfilePage() {
         </motion.div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 gap-3 mb-6">
           {[
-            { icon: Flame, label: 'Streak', value: `${profile?.current_streak || 0}🔥`, color: 'text-orange-400' },
-            { icon: Trophy, label: 'Best', value: `${profile?.best_streak || 0} days`, color: 'text-yellow-400' },
-            { icon: Clock, label: 'Focus', value: `${totalHours}h`, color: 'text-primary' },
+            { icon: Flame, label: 'Current Streak', value: `${profile?.current_streak || 0} 🔥`, color: 'text-warning' },
+            { icon: Trophy, label: 'Best Streak', value: `${profile?.best_streak || 0} days`, color: 'text-primary' },
+            { icon: Clock, label: 'Total Focus', value: `${totalHours}h`, color: 'text-primary' },
+            { icon: Trophy, label: 'Sessions', value: `${sessionCount}`, color: 'text-primary' },
           ].map((stat, i) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
+              transition={{ delay: i * 0.06 }}
               className="glass rounded-xl p-4 text-center">
               <stat.icon className={`w-5 h-5 mx-auto mb-1.5 ${stat.color}`} />
               <p className="text-lg font-bold text-foreground">{stat.value}</p>
@@ -83,8 +100,17 @@ export default function ProfilePage() {
           ))}
         </div>
 
+        {/* Wallet */}
+        <div className="glass rounded-2xl p-4 mb-5 neon-border flex items-center justify-between">
+          <span className="text-sm text-foreground font-medium">Wallet Balance</span>
+          <span className="text-lg font-bold font-mono text-primary">🪙 {profile?.wallet_balance || 0}</span>
+        </div>
+
+        {/* Achievements */}
+        <AchievementsGrid />
+
         {/* Settings */}
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Settings</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 mt-6">Settings</h3>
         <div className="glass rounded-2xl divide-y divide-border mb-6">
           {[
             { icon: Bell, label: 'Notifications', toggle: true, value: notifications, onChange: () => setNotifications(!notifications) },
@@ -94,7 +120,7 @@ export default function ProfilePage() {
           ].map((item) => (
             <div key={item.label} className="flex items-center justify-between px-4 py-3.5">
               <div className="flex items-center gap-3">
-                <item.icon className="w-4.5 h-4.5 text-muted-foreground" />
+                <item.icon className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">{item.label}</span>
               </div>
               {item.toggle ? (
@@ -110,20 +136,16 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* Account */}
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Account</h3>
-        <div className="glass rounded-2xl mb-6">
-          <div className="px-4 py-3.5 flex items-center justify-between">
-            <span className="text-sm text-foreground">Wallet Balance</span>
-            <span className="text-sm font-bold text-primary">🪙 {profile?.wallet_balance || 0}</span>
-          </div>
-        </div>
+        {/* Export */}
+        <motion.button whileTap={{ scale: 0.97 }} onClick={handleExport}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl glass text-foreground font-semibold mb-3">
+          <Download className="w-5 h-5" /> Export My Data
+        </motion.button>
 
         {/* Logout */}
         <motion.button whileTap={{ scale: 0.97 }} onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-destructive/40 text-destructive font-bold active:scale-95 transition-transform">
-          <LogOut className="w-5 h-5" />
-          Log Out
+          <LogOut className="w-5 h-5" /> Log Out
         </motion.button>
       </div>
     </AppLayout>

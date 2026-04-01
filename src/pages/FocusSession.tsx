@@ -149,6 +149,9 @@ export default function FocusSession() {
         </motion.div>
       )}
 
+      {/* Focus Sounds */}
+      {isFocusActive && <FocusSounds />}
+
       {/* Modals */}
       <StartFocusModal open={showSetup} onClose={() => setShowSetup(false)} onStart={handleStartSession} />
       <BreakFocusDialog open={showBreakDialog} onOpenChange={setShowBreakDialog} penalty={penaltyAmount} onConfirm={handleBreak} />
