@@ -107,6 +107,10 @@ export default function Dashboard() {
           { to: '/focus', icon: Play, label: 'Quick Focus' },
           { to: '/block', icon: Lock, label: 'Block Apps' },
           { to: '/history', icon: BarChart3, label: 'History' },
+          { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+          { to: '/schedule', icon: CalendarClock, label: 'Schedules' },
+          { to: '/store', icon: ShoppingBag, label: 'Store' },
+          { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
         ].map(({ to, icon: Icon, label }, i) => (
           <Link key={to} to={to}>
             <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
