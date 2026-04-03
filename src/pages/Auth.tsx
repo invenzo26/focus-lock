@@ -56,9 +56,9 @@ export default function Auth() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', bounce: 0.5 }}
-            className="w-20 h-20 rounded-3xl gradient-primary mx-auto flex items-center justify-center mb-4 glow-neon"
+            className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center mb-4 glow-neon overflow-hidden"
           >
-            <Shield className="w-10 h-10 text-primary-foreground" />
+            <img src="/favicon.png" alt="FocusLock" className="w-full h-full object-cover" />
           </motion.div>
           <h1 className="text-3xl font-bold text-foreground">FocusLock</h1>
           <p className="text-muted-foreground mt-1 text-sm">Welcome Back</p>
