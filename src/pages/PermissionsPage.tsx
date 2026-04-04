@@ -70,6 +70,8 @@ export default function PermissionsPage() {
   useEffect(() => {
     if (allPermissionsGranted && !showSuccess) {
       setShowSuccess(true);
+      // Set a grace period so NativePermissionGate doesn't re-check immediately
+      sessionStorage.setItem('permissions_grace_until', String(Date.now() + 10000));
       const timer = setTimeout(() => {
         const returnTo = (location.state as any)?.returnTo || '/';
         navigate(returnTo, { replace: true });
