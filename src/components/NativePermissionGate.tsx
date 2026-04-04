@@ -27,6 +27,13 @@ export function NativePermissionGate({ children }: { children: React.ReactNode }
         return;
       }
 
+      // Skip permission check if we just came from the permissions page (grace period)
+      const graceUntil = sessionStorage.getItem('permissions_grace_until');
+      if (graceUntil && Date.now() < parseInt(graceUntil, 10)) {
+        if (!cancelled) setChecked(true);
+        return;
+      }
+
       if (!cancelled) setChecked(false);
 
       try {
