@@ -29,35 +29,42 @@ const App = () => {
   const hideSplash = useCallback(() => setShowSplash(false), []);
 
   return (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <FocusProvider>
-            <NativePermissionGate>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/focus" element={<FocusPage />} />
-                <Route path="/block" element={<BlockPageRoute />} />
-                <Route path="/history" element={<HistoryPageRoute />} />
-                <Route path="/wallet" element={<WalletPageRoute />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/permissions" element={<PermissionsPage />} />
-                <Route path="/leaderboard" element={<LeaderboardPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/schedule" element={<SchedulePage />} />
-                <Route path="/store" element={<StorePage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </NativePermissionGate>
-          </FocusProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+    <>
+      {showSplash && <SplashScreen onComplete={hideSplash} />}
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <FocusProvider>
+                <NativePermissionGate>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="/focus" element={<FocusPage />} />
+                    <Route path="/block" element={<BlockPageRoute />} />
+                    <Route path="/history" element={<HistoryPageRoute />} />
+                    <Route path="/wallet" element={<WalletPageRoute />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/permissions" element={<PermissionsPage />} />
+                    <Route path="/leaderboard" element={<LeaderboardPage />} />
+                    <Route path="/analytics" element={<AnalyticsPage />} />
+                    <Route path="/schedule" element={<SchedulePage />} />
+                    <Route path="/store" element={<StorePage />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </NativePermissionGate>
+              </FocusProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </>
+  );
+};
+
+export default App;
 );
 
 export default App;
