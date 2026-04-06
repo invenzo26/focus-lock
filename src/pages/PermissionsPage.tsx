@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { useNativeBlocker } from '@/hooks/useNativeBlocker';
 
+const APP_LOGO_SRC = '/favicon-96x96.png?v=focuslock-20260406';
+
 const PERMISSION_STEPS = [
   {
     key: 'accessibility' as const,
@@ -48,10 +50,10 @@ export default function PermissionsPage() {
 
   // Poll permissions every 2s
   useEffect(() => {
-    if (!isNative) return;
+    if (!isNative || showSuccess) return;
     const interval = setInterval(checkAllPermissions, 2000);
     return () => clearInterval(interval);
-  }, [isNative, checkAllPermissions]);
+  }, [isNative, checkAllPermissions, showSuccess]);
 
   // Auto-advance when current step is granted
   useEffect(() => {
@@ -72,13 +74,19 @@ export default function PermissionsPage() {
       setShowSuccess(true);
       // Set a grace period so NativePermissionGate doesn't re-check immediately
       sessionStorage.setItem('permissions_grace_until', String(Date.now() + 10000));
-      const timer = setTimeout(() => {
-        const returnTo = (location.state as any)?.returnTo || '/';
-        navigate(returnTo, { replace: true });
-      }, 2500);
-      return () => clearTimeout(timer);
     }
-  }, [allPermissionsGranted, navigate, location.state, showSuccess]);
+  }, [allPermissionsGranted, showSuccess]);
+
+  useEffect(() => {
+    if (!showSuccess) return;
+
+    const timer = setTimeout(() => {
+      const returnTo = (location.state as any)?.returnTo || '/';
+      navigate(returnTo === '/permissions' ? '/' : returnTo, { replace: true });
+    }, 1800);
+
+    return () => clearTimeout(timer);
+  }, [showSuccess, navigate, location.state]);
 
   // Web redirect
   if (!isNative) {
@@ -118,9 +126,9 @@ export default function PermissionsPage() {
           <motion.div
             animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
             transition={{ duration: 0.8 }}
-            className="w-24 h-24 mx-auto rounded-full bg-green-500/15 flex items-center justify-center"
+            className="w-24 h-24 mx-auto rounded-3xl overflow-hidden bg-green-500/15 flex items-center justify-center"
           >
-            <Sparkles className="w-12 h-12 text-green-400" />
+            <img src={APP_LOGO_SRC} alt="FocusLock" className="w-full h-full object-cover" />
           </motion.div>
           <h1 className="text-2xl font-bold text-foreground">You're All Set! 🎉</h1>
           <p className="text-sm text-muted-foreground">All permissions granted. FocusLock is ready to protect your focus.</p>

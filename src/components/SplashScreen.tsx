@@ -1,6 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
+const APP_LOGO_SRC = '/favicon-96x96.png?v=focuslock-20260406';
+
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [phase, setPhase] = useState<'logo' | 'fade'>('logo');
 
@@ -32,7 +34,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
           className="relative z-10 mb-6"
         >
           <div className="w-24 h-24 rounded-3xl overflow-hidden shadow-2xl" style={{ boxShadow: '0 0 60px hsl(var(--primary) / 0.4)' }}>
-            <img src="/favicon-96x96.png" alt="FocusLock" className="w-full h-full object-cover" />
+            <img src={APP_LOGO_SRC} alt="FocusLock" className="w-full h-full object-cover" />
           </div>
         </motion.div>
 

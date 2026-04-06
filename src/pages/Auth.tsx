@@ -5,6 +5,8 @@ import { Shield, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+const APP_LOGO_SRC = '/favicon.png?v=focuslock-20260406';
+
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -58,7 +60,7 @@ export default function Auth() {
             transition={{ type: 'spring', bounce: 0.5 }}
             className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center mb-4 glow-neon overflow-hidden"
           >
-            <img src="/favicon.png" alt="FocusLock" className="w-full h-full object-cover" />
+            <img src={APP_LOGO_SRC} alt="FocusLock" className="w-full h-full object-cover" />
           </motion.div>
           <h1 className="text-3xl font-bold text-foreground">FocusLock</h1>
           <p className="text-muted-foreground mt-1 text-sm">Welcome Back</p>
