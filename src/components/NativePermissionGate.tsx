@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import AppBlocker from '@/plugins/AppBlockerPlugin';
+import { permLog } from '@/lib/permissionLogger';
 
 /**
  * Checks critical permissions on native launch.
@@ -27,8 +28,10 @@ export function NativePermissionGate({ children }: { children: React.ReactNode }
           AppBlocker.isAccessibilityEnabled(),
           AppBlocker.isUsageAccessEnabled(),
         ]);
+          permLog.info('check', 'gate queryOnce', { acc: acc.enabled, usage: usage.enabled });
         return acc.enabled && usage.enabled;
-      } catch {
+        } catch (err) {
+          permLog.error('plugin-error', 'gate queryOnce threw', { error: String(err) });
         // Plugin error → treat as unknown; let the gate pass to avoid an infinite redirect
         // loop on devices where the plugin call fails transiently (rare WebView quirks).
         return true;
@@ -69,6 +72,7 @@ export function NativePermissionGate({ children }: { children: React.ReactNode }
       }
 
       if (cancelled) return;
+      permLog.warn('navigation', 'Gate redirecting to /permissions', { from: location.pathname });
       navigate('/permissions', { replace: true, state: { returnTo: location.pathname } });
     };
 

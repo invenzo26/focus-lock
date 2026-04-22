@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, LogOut, Mail, Calendar, Trophy, Flame, Clock, Shield, ChevronRight, Bell, Moon, Volume2, Download } from 'lucide-react';
+import { User, LogOut, Mail, Calendar, Trophy, Flame, Clock, Shield, ChevronRight, Bell, Moon, Volume2, Download, Stethoscope } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
@@ -140,6 +140,12 @@ export default function ProfilePage() {
         <motion.button whileTap={{ scale: 0.97 }} onClick={handleExport}
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl glass text-foreground font-semibold mb-3">
           <Download className="w-5 h-5" /> Export My Data
+        </motion.button>
+
+        {/* Diagnostics */}
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => navigate('/diagnostics')}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl glass text-foreground font-semibold mb-3 neon-border">
+          <Stethoscope className="w-5 h-5 text-primary" /> Permission Diagnostics
         </motion.button>
 
         {/* Logout */}

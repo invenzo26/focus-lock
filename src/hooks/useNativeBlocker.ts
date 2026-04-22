@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import AppBlocker from '@/plugins/AppBlockerPlugin';
+import { permLog } from '@/lib/permissionLogger';
 
 export interface PermissionStatus {
   accessibility: boolean | null;
@@ -31,13 +32,16 @@ export function useNativeBlocker() {
         AppBlocker.isOverlayEnabled(),
         AppBlocker.isBatteryOptimizationDisabled(),
       ]);
-      setPermissions({
+      const next = {
         accessibility: acc.enabled,
         usageAccess: usage.enabled,
         overlay: overlay.enabled,
         batteryOptimization: battery.enabled,
-      });
-    } catch {
+      };
+      setPermissions(next);
+      permLog.info('check', 'checkAllPermissions ok', next);
+    } catch (err) {
+      permLog.error('plugin-error', 'checkAllPermissions failed', { error: String(err) });
       setPermissions({ accessibility: false, usageAccess: false, overlay: false, batteryOptimization: false });
     }
   }, [isNative]);
