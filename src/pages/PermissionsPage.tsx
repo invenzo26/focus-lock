@@ -6,6 +6,8 @@ import {
   ChevronRight, ChevronLeft, Loader2, Sparkles,
 } from 'lucide-react';
 import { useNativeBlocker } from '@/hooks/useNativeBlocker';
+import { permLog } from '@/lib/permissionLogger';
+import { BrandPermissionGuide } from '@/components/permissions/BrandPermissionGuide';
 
 const APP_LOGO_SRC = '/favicon-96x96.png?v=focuslock-20260406';
 
@@ -82,6 +84,7 @@ export default function PermissionsPage() {
 
     const returnTo = (location.state as any)?.returnTo || '/';
     const target = returnTo === '/permissions' ? '/' : returnTo;
+    permLog.success('navigation', 'All permissions granted, scheduling redirect', { target });
 
     const navTimer = setTimeout(() => {
       navigate(target, { replace: true });
@@ -94,6 +97,7 @@ export default function PermissionsPage() {
     // "Redirecting..." spinner on first install.
     const hardTimer = setTimeout(() => {
       if (window.location.pathname === '/permissions') {
+        permLog.warn('navigation', 'Hard fallback reload to escape /permissions', { target });
         window.location.replace(target);
       }
     }, 2800);
@@ -122,6 +126,7 @@ export default function PermissionsPage() {
 
   const grantAction = () => {
     const step = PERMISSION_STEPS[currentStep];
+    permLog.info('settings-open', `Opening settings for ${step.key}`);
     switch (step.key) {
       case 'accessibility': return openAccessibilitySettings();
       case 'usageAccess': return openUsageAccessSettings();
