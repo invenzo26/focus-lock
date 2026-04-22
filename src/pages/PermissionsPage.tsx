@@ -273,6 +273,21 @@ export default function PermissionsPage() {
           MIUI/Xiaomi? Enable Auto-Start →
         </button>
       </div>
+
+      {/* Brand-aware step-by-step guide for whichever permission is current */}
+      <div className="mt-4">
+        <BrandPermissionGuide focusOn={
+          step.key === 'batteryOptimization' ? 'battery' : (step.key as any)
+        } />
+      </div>
+
+      {/* Diagnostics escape hatch */}
+      <button
+        onClick={() => navigate('/diagnostics')}
+        className="mt-4 text-xs text-primary underline underline-offset-2 self-center"
+      >
+        Stuck? Open Permission Diagnostics →
+      </button>
     </div>
   );
 }
