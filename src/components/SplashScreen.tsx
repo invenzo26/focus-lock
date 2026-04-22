@@ -14,7 +14,6 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
 
   return (
     <AnimatePresence>
-      {phase !== 'fade' ? null : null}
       <motion.div
         key="splash"
         initial={{ opacity: 1 }}

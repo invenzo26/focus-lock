@@ -80,12 +80,28 @@ export default function PermissionsPage() {
   useEffect(() => {
     if (!showSuccess) return;
 
-    const timer = setTimeout(() => {
-      const returnTo = (location.state as any)?.returnTo || '/';
-      navigate(returnTo === '/permissions' ? '/' : returnTo, { replace: true });
-    }, 1800);
+    const returnTo = (location.state as any)?.returnTo || '/';
+    const target = returnTo === '/permissions' ? '/' : returnTo;
 
-    return () => clearTimeout(timer);
+    const navTimer = setTimeout(() => {
+      navigate(target, { replace: true });
+    }, 1500);
+
+    // Hard fallback: on certain Android WebView builds (older Chrome WebView on
+    // Samsung/Oppo), React Router's replaceState occasionally does not trigger a
+    // re-render when the route is the current one. Force a full reload after 2.8s
+    // if we're somehow still on /permissions, so the user is NEVER stuck on a
+    // "Redirecting..." spinner on first install.
+    const hardTimer = setTimeout(() => {
+      if (window.location.pathname === '/permissions') {
+        window.location.replace(target);
+      }
+    }, 2800);
+
+    return () => {
+      clearTimeout(navTimer);
+      clearTimeout(hardTimer);
+    };
   }, [showSuccess, navigate, location.state]);
 
   // Web redirect

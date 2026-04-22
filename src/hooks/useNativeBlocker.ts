@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import AppBlocker from '@/plugins/AppBlockerPlugin';
 
 export interface PermissionStatus {
@@ -52,6 +53,30 @@ export function useNativeBlocker() {
   }, [isNative]);
 
   useEffect(() => { checkAllPermissions(); }, [checkAllPermissions]);
+
+  // Re-check immediately when app resumes (user returning from Settings on any OEM).
+  // Some Android OEMs (Xiaomi/MIUI, Oppo/ColorOS, Vivo/FuntouchOS, Samsung/OneUI)
+  // delay propagation of permission grants by ~300-1500ms. Re-check on resume + a delayed
+  // retry covers all cases without forcing the user to wait for the 2s polling interval.
+  useEffect(() => {
+    if (!isNative) return;
+    let handle: { remove: () => void } | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    CapApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        checkAllPermissions();
+        // Second check after OEM settles its permission DB
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => checkAllPermissions(), 1200);
+      }
+    }).then((h) => { handle = h; }).catch(() => {});
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      handle?.remove();
+    };
+  }, [isNative, checkAllPermissions]);
 
   const allPermissionsGranted = permissions.accessibility === true &&
     permissions.usageAccess === true &&
